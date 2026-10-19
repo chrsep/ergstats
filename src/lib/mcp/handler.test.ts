@@ -6,6 +6,20 @@ import { allResults, twoK, twoKStrokes, user } from "@/lib/concept2/__fixtures__
 import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
 
 const GOOD_KEY = "erg_test_key";
+
+const holidayChallenge = {
+  key: "holiday",
+  name: "Holiday Challenge",
+  season: 2027,
+  start: "2026-11-26",
+  end: "2026-12-24",
+  activity: "Row/Ski/Ride",
+  category: "Individual",
+  description: "Long description",
+  short_description: "Row, ski or ride 100,000 meters.",
+  link: "https://www.concept2.com/holiday-challenge",
+  image: "https://example.com/holiday.png",
+};
 const GOOD_TOKEN = "oauth-access-token";
 const RESOURCE_METADATA = "https://ergstats.test/.well-known/oauth-protected-resource/mcp";
 
@@ -26,7 +40,12 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
     );
     return json({ data, meta: { pagination: { total: data.length, count: data.length, per_page: 250, current_page: 1, total_pages: 1 } } });
   }
-  if (url.pathname === `/api/users/me/results/${twoK.id}`) return json({ data: twoK });
+  if (url.pathname === `/api/users/me/results/${twoK.id}`) {
+    // Device details only come back when asked for.
+    return json({ data: url.searchParams.get("include") === "metadata" ? twoK : { ...twoK, metadata: undefined } });
+  }
+  if (url.pathname === "/api/challenges/current") return json({ data: [holidayChallenge] });
+  if (url.pathname === "/api/challenges/season/2027") return json({ data: [holidayChallenge, { ...holidayChallenge, key: "other", name: "Other" }] });
   if (url.pathname === `/api/users/me/results/${twoK.id}/strokes`) return json({ data: twoKStrokes });
   return new Response("not found", { status: 404 });
 }
@@ -112,6 +131,7 @@ describe("MCP endpoint", () => {
       "get_training_summary",
       "get_workout",
       "get_workout_strokes",
+      "list_challenges",
       "list_workouts",
     ]);
     for (const tool of tools) {
@@ -132,18 +152,61 @@ describe("MCP endpoint", () => {
     expect((result.structuredContent as { total: number }).total).toBe(4);
   });
 
-  it("returns workout detail with splits", async () => {
+  it("returns the profile with age and weight", async () => {
+    const client = await connect();
+    const result = await client.callTool({ name: "get_profile", arguments: {} });
+    expect(result.structuredContent).toMatchObject({ dateOfBirth: "1990-11-02", age: 35, weightKg: 82.5, maxHeartRate: 192 });
+    expect((result.content as { text: string }[])[0].text).toContain("Weight: 82.5 kg");
+  });
+
+  it("returns workout detail with splits, targets and equipment", async () => {
     const client = await connect();
     const result = await client.callTool({ name: "get_workout", arguments: { workout_id: twoK.id } });
-    const structured = result.structuredContent as { segments: unknown[]; dragFactor: number };
+    const structured = result.structuredContent as { segments: unknown[]; dragFactor: number; device: unknown };
     expect(structured.segments).toHaveLength(4);
     expect(structured.dragFactor).toBe(125);
+    expect(structured.device).toMatchObject({ monitor: "5", heartRateMonitor: "BT" });
+    const text = (result.content as { text: string }[])[0].text;
+    expect(text).toContain("Started 2026-10-18 07:22:28, ended 2026-10-18 07:30:00 (Asia/Jakarta)");
+    expect(text).toContain("Targets: 1:53.0/500m, 30spm");
+    expect(text).toContain("Logged from ErgData iOS, verified, ranked, heavyweight, privacy everyone");
+    expect(text).toContain("Equipment: PM5, firmware 211, Model D/E, RowErg or Dynamic, serial 430123456");
+    expect(text).toContain("1. 500m 1:55.0 1:55.0/500m 230W 31spm 34cal");
+    expect(text).toContain("HR avg 168/min 120/max 176/end 175");
   });
 
   it("summarizes stroke data", async () => {
     const client = await connect();
     const result = await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: twoK.id, segments: 4 } });
     expect((result.structuredContent as { buckets: unknown[] }).buckets).toHaveLength(4);
+  });
+
+  it("pages through raw strokes", async () => {
+    const client = await connect();
+    const result = await client.callTool({
+      name: "get_workout_strokes",
+      arguments: { workout_id: twoK.id, format: "strokes", offset: 190, limit: 5 },
+    });
+    const structured = result.structuredContent as { strokes: { n: number }[]; nextOffset: number | null };
+    expect(structured.strokes.map((s) => s.n)).toEqual([191, 192, 193, 194, 195]);
+    expect(structured.nextOffset).toBe(195);
+    const last = await client.callTool({
+      name: "get_workout_strokes",
+      arguments: { workout_id: twoK.id, format: "strokes", offset: 195 },
+    });
+    expect((last.structuredContent as { nextOffset: number | null }).nextOffset).toBeNull();
+    expect((last.content as { text: string }[])[0].text).toContain("Strokes 196-200 of 200");
+  });
+
+  it("lists Concept2 challenges", async () => {
+    const client = await connect();
+    const current = await client.callTool({ name: "list_challenges", arguments: {} });
+    expect((current.content as { text: string }[])[0].text).toContain(
+      "Holiday Challenge (2026-11-26 to 2026-12-24) · Row/Ski/Ride, Individual · Row, ski or ride 100,000 meters.",
+    );
+    // 2026-10-19 falls in the season that ends in 2027.
+    const season = await client.callTool({ name: "list_challenges", arguments: { when: "season" } });
+    expect((season.structuredContent as { challenges: unknown[] }).challenges).toHaveLength(2);
   });
 
   it("summarizes training over the default 12 weeks", async () => {

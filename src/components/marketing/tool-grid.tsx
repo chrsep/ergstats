@@ -31,19 +31,19 @@ export const TOOLS: ToolInfo[] = [
   {
     name: "get_workout",
     icon: TimerIcon,
-    summary: "Splits or intervals with pace, watts, rate and heart rate.",
+    summary: "Splits or intervals, targets, heart rate and the monitor you used.",
     prompt: "Break down Tuesday’s 4×500m intervals.",
   },
   {
     name: "get_workout_strokes",
     icon: ActivityIcon,
-    summary: "Stroke data averaged into segments to see pacing.",
+    summary: "Pacing through a piece, down to every single stroke.",
     prompt: "Where did I fade in my 5k?",
   },
   {
     name: "get_profile",
     icon: UserIcon,
-    summary: "Your Logbook profile and max heart rate.",
+    summary: "Age, weight and max heart rate from your Logbook profile.",
     prompt: "Set my heart rate zones from my profile.",
   },
 ];
