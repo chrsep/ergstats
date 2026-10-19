@@ -23,11 +23,11 @@ export const dateSchema = z
   .describe("A date as YYYY-MM-DD, in the athlete's local time.");
 
 const pace = z.string().nullable().describe('Average pace, e.g. "1:52.3/500m" ("/1k" on the BikeErg).');
-const wattsField = z.number().nullable().describe("Average watts. Null on the BikeErg.");
+const wattsField = z.number().nullable().describe("Average watts.");
 
 export const workoutSummarySchema = z.object({
   id: z.number().describe("Workout id, for get_workout and get_workout_strokes."),
-  date: z.string().describe('Local start time, "YYYY-MM-DD HH:MM:SS".'),
+  date: z.string().describe('Local time the workout was logged (its end), "YYYY-MM-DD HH:MM:SS".'),
   machine: machineSchema,
   workoutType: z.string().nullable().describe("Concept2 workout type, e.g. JustRow, FixedDistanceSplits, FixedTimeInterval."),
   distanceMeters: z.number(),

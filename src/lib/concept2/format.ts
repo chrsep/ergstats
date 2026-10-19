@@ -31,11 +31,33 @@ export function formatPace(timeTenths: number, distance: number, type: MachineTy
   return pace === null ? null : `${formatTenths(pace)}/${paceUnit(type) === 1000 ? "1k" : "500m"}`;
 }
 
-/** Concept2's pace-to-watts formula. Only meaningful for the RowErg and SkiErg. */
+/**
+ * Concept2's pace-to-watts formula: 2.80 / (seconds per meter)^3. The BikeErg
+ * flywheel is geared so the same formula reads an eighth as much.
+ */
 export function watts(timeTenths: number, distance: number, type: MachineType): number | null {
-  if (type === "bike" || !distance || !timeTenths) return null;
+  if (!distance || !timeTenths) return null;
   const secondsPerMeter = timeTenths / 10 / distance;
-  return Math.round(2.8 / secondsPerMeter ** 3);
+  const value = 2.8 / secondsPerMeter ** 3;
+  return Math.round(type === "bike" ? value / 8 : value);
+}
+
+/**
+ * Stroke `t` and `d` are running totals that restart at 0 each interval.
+ * Rebase them so they keep counting up across the whole workout.
+ */
+export function continuousStrokes<T extends { t: number; d: number }>(strokes: T[]): T[] {
+  let tOffset = 0;
+  let dOffset = 0;
+  let prev = { t: 0, d: 0 };
+  return strokes.map((s) => {
+    if (s.d < prev.d || s.t < prev.t) {
+      tOffset += prev.t;
+      dOffset += prev.d;
+    }
+    prev = s;
+    return { ...s, t: s.t + tOffset, d: s.d + dOffset };
+  });
 }
 
 export function formatDistance(meters: number): string {

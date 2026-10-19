@@ -1,4 +1,5 @@
 import {
+  continuousStrokes,
   formatDistance,
   formatPace,
   formatTenths,
@@ -133,8 +134,9 @@ export interface StrokeBucket {
  * Downsample per-stroke data into `buckets` equal slices of distance so a
  * 2k piece (~250 strokes) or a marathon (~15k strokes) costs the same context.
  */
-export function bucketStrokes(strokes: Concept2Stroke[], type: MachineType, buckets: number): StrokeBucket[] {
-  if (strokes.length === 0) return [];
+export function bucketStrokes(raw: Concept2Stroke[], type: MachineType, buckets: number): StrokeBucket[] {
+  if (raw.length === 0) return [];
+  const strokes = continuousStrokes(raw);
   const totalDecimeters = strokes[strokes.length - 1].d;
   const n = Math.max(1, Math.min(buckets, strokes.length));
   const size = totalDecimeters / n;
