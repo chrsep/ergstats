@@ -103,7 +103,7 @@ async function issueTokens(grant: SealedGrant): Promise<TokenResponse> {
     token_type: "Bearer",
     expires_in: accessTtl,
     refresh_token: refreshToken,
-    scope: grant.scope,
+    scope: grant.scp,
   };
 }
 

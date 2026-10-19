@@ -35,7 +35,7 @@ export async function seal(
 }
 
 /** Decrypts a token of the given kind. Returns undefined if it is invalid, expired or another kind. */
-export async function open<T extends Record<string, unknown>>(
+export async function open<T extends object>(
   kind: TokenKind,
   token: string | undefined | null,
 ): Promise<(T & JWTPayload) | undefined> {
