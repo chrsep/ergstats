@@ -10,7 +10,7 @@ const sans = Geist({ variable: "--font-sans", subsets: ["latin"] });
 const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ergstats.com"),
+  metadataBase: new URL("https://www.ergstats.com"),
   title: { default: "ErgStats · Your Concept2 Logbook in your AI tools", template: "%s · ErgStats" },
   description:
     "Connect your Concept2 Logbook to Claude, Cursor and any MCP client. Ask about your splits, PRs and training load in plain language.",

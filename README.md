@@ -8,10 +8,10 @@ Not affiliated with or endorsed by Concept2.
 
 1. **Sign in with Concept2.** BetterAuth runs the Concept2 OAuth flow (scopes `user:read,results:read`, read-only). The Concept2 tokens are stored encrypted in Postgres and refreshed automatically before they expire.
 2. **Create an API key** on the dashboard (BetterAuth API key plugin, `erg_` prefix, 120 requests per minute per key).
-3. **Connect a client** to `https://ergstats.com/mcp` with `Authorization: Bearer <key>`:
+3. **Connect a client** to `https://www.ergstats.com/mcp` with `Authorization: Bearer <key>`:
 
    ```sh
-   claude mcp add --transport http ergstats https://ergstats.com/mcp \
+   claude mcp add --transport http ergstats https://www.ergstats.com/mcp \
      --header "Authorization: Bearer erg_..."
    ```
 
@@ -108,7 +108,7 @@ Production runs on Vercel with the Neon integration. The Neon database is in `aw
 | --- | --- |
 | `DATABASE_URL` | Set by the Neon integration |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | `https://ergstats.com` |
+| `BETTER_AUTH_URL` | `https://www.ergstats.com` |
 | `CONCEPT2_CLIENT_ID` / `CONCEPT2_CLIENT_SECRET` | From the Concept2 app registration |
 
-Register the Concept2 app at <https://log.concept2.com/developers/keys> with the redirect URI `https://ergstats.com/api/auth/callback/concept2`. Read-only apps can use the production Logbook straight away.
+Register the Concept2 app at <https://log.concept2.com/developers/keys> with the redirect URI `https://www.ergstats.com/api/auth/callback/concept2`. Read-only apps can use the production Logbook straight away.
