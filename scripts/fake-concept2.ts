@@ -48,22 +48,21 @@ const server = createServer(async (req, res) => {
     });
   }
 
-  // Challenges are public, like on log.concept2.com.
+  // Challenges are public, like on log.concept2.com. The fixture is a future
+  // challenge, so only the upcoming and season lists include it.
   if (url.pathname.startsWith("/api/challenges")) {
-    return send(200, {
-      data: [
-        {
-          key: "holiday",
-          name: "Holiday Challenge",
-          start: "2026-11-26",
-          end: "2026-12-24",
-          activity: "Row/Ski/Ride",
-          category: "Individual",
-          short_description: "Row, ski or ride 100,000 meters.",
-          link: "https://www.concept2.com/holiday-challenge",
-        },
-      ],
-    });
+    const holiday = {
+      key: "holiday",
+      name: "Holiday Challenge",
+      start: "2026-11-26",
+      end: "2026-12-24",
+      activity: "Row/Ski/Ride",
+      category: "Individual",
+      short_description: "Row, ski or ride 100,000 meters.",
+      link: "https://www.concept2.com/holiday-challenge",
+    };
+    const listsHoliday = /^\/api\/challenges\/(upcoming|season)(\/|$)/.test(url.pathname);
+    return send(200, { data: listsHoliday ? [holiday] : [] });
   }
 
   if (req.headers.authorization !== `Bearer ${ACCESS_TOKEN}`) return send(401, { message: "Unauthenticated." });

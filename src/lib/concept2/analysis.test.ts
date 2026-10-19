@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allResults, intervalStrokes, intervals, twoK, twoKStrokes } from "./__fixtures__/results";
+import { allResults, intervalStrokes, intervals, steadyState, twoK, twoKStrokes } from "./__fixtures__/results";
 import { bucketStrokes, personalBests, strokeRows, summarizeWorkout, trainingSummary, workoutDetail } from "./analysis";
 
 describe("personalBests", () => {
@@ -41,6 +41,13 @@ describe("workoutDetail", () => {
     expect(workoutDetail(twoK).startedAt).toBe("2026-10-18 07:22:28");
     // 7:10.0 of work plus 6:00.0 of rest before 07:00:00.
     expect(workoutDetail(intervals).startedAt).toBe("2026-10-12 06:46:50");
+  });
+
+  it("uses the UTC time and timezone across a daylight-saving change", () => {
+    // An hour's row ending at 01:30 EST, after clocks fell back from 02:00 EDT.
+    const fallBack = { ...steadyState, date: "2026-11-01 01:30:00", date_utc: "2026-11-01 06:30:00", time: 36000 };
+    expect(workoutDetail({ ...fallBack, timezone: "America/New_York" }).startedAt).toBe("2026-11-01 01:30:00");
+    expect(workoutDetail({ ...fallBack, timezone: "Not/AZone" }).startedAt).toBe("2026-11-01 00:30:00");
   });
 
   it("carries every field Concept2 returns for a result", () => {

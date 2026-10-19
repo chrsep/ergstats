@@ -216,17 +216,54 @@ function deviceDetail(m: Concept2Metadata | null | undefined, type: MachineType)
   return Object.values(detail).some((v) => v !== null) ? detail : null;
 }
 
+const LOCAL_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/;
+
+/** Milliseconds for a "YYYY-MM-DD HH:MM:SS" timestamp read as UTC. */
+function parseAsUtc(timestamp: string | null | undefined): number | null {
+  const m = LOCAL_TIMESTAMP.exec(timestamp ?? "");
+  if (!m) return null;
+  const ms = Date.parse(`${m[1]}T${m[2]}Z`);
+  return Number.isNaN(ms) ? null : ms;
+}
+
+/** An instant as "YYYY-MM-DD HH:MM:SS" wall-clock time in an IANA timezone. */
+function formatInZone(ms: number, timeZone: string): string | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(new Date(ms));
+    const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value;
+    return `${part("year")}-${part("month")}-${part("day")} ${part("hour")}:${part("minute")}:${part("second")}`;
+  } catch {
+    return null; // Unknown timezone name.
+  }
+}
+
 /**
  * Concept2 logs a workout at the time it ended. Subtract work and rest time
- * to get when it started, in the same local time.
+ * to get when it started, in the same local time. With a UTC time and a
+ * timezone this is exact across daylight-saving changes; without them the
+ * local clock is treated as continuous.
  */
-export function startedAt(r: Pick<Concept2Result, "date" | "time" | "rest_time">): string | null {
-  const m = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/.exec(r.date);
-  if (!m) return null;
-  const end = Date.parse(`${m[1]}T${m[2]}Z`);
-  if (Number.isNaN(end)) return null;
-  const start = new Date(end - Math.round((r.time + (r.rest_time ?? 0)) * 100));
-  return start.toISOString().replace("T", " ").slice(0, 19);
+export function startedAt(
+  r: Pick<Concept2Result, "date" | "date_utc" | "timezone" | "time" | "rest_time">,
+): string | null {
+  const duration = Math.round((r.time + (r.rest_time ?? 0)) * 100);
+  const endUtc = parseAsUtc(r.date_utc);
+  if (endUtc !== null && r.timezone) {
+    const local = formatInZone(endUtc - duration, r.timezone);
+    if (local) return local;
+  }
+  const endLocal = parseAsUtc(r.date);
+  if (endLocal === null) return null;
+  return new Date(endLocal - duration).toISOString().replace("T", " ").slice(0, 19);
 }
 
 export interface WorkoutDetail extends WorkoutSummary {
