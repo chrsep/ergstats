@@ -33,10 +33,13 @@ All tools are read-only (`readOnlyHint`), return a compact text answer for the m
 | --- | --- |
 | `get_training_summary` | Sessions, meters and time for a date range, per machine (with average pace) and per week or month. Defaults to the last 12 weeks. |
 | `get_personal_bests` | Best result per standard event (100m to marathon, 1/4/30/60 min) and machine. |
-| `list_workouts` | Workouts newest first, filterable by date and machine, paginated. |
-| `get_workout` | Splits or intervals with pace, watts, stroke rate, heart rate, rest, drag factor. |
-| `get_workout_strokes` | Stroke data averaged into equal-distance segments. |
-| `get_profile` | Logbook profile and max heart rate. |
+| `list_workouts` | Workouts newest first, filterable by date and machine, paginated, with comments, rest, drag factor, source and verified/ranked flags. |
+| `get_workout` | Everything Concept2 stores for one result: start/end time, splits or intervals (pace, watts, rate, calories, watt-minutes, full heart rate incl. rest and recovery, rest), monitor targets, and the PM, firmware, app and HR strap it was logged with. |
+| `get_workout_strokes` | Stroke data averaged into equal-distance segments, or every stroke (`format: "strokes"`, paged). |
+| `get_profile` | Logbook profile: gender, date of birth and age, weight, max heart rate. |
+| `list_challenges` | Concept2's current, upcoming, recent and seasonal challenges and events. |
+
+Every read-only Logbook endpoint is covered except the per-result CSV/FIT/TCX exports, which hold the same stroke data `get_workout_strokes` returns.
 
 The server runs on [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) 2.3 and the MCP TypeScript SDK v2: MCP spec **2026-07-28** (stateless Streamable HTTP), with the 2025-era fallback for older clients.
 
