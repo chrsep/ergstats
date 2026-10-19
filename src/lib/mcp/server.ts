@@ -55,8 +55,9 @@ function withOAuth(req: Request, next: AuthorizedHandler): Promise<Response> {
       const userId = claims.sub;
       const clientId = typeof claims.azp === "string" ? claims.azp : undefined;
       // Disconnecting an app on the dashboard deletes its consent; stop its
-      // still-unexpired access tokens right away instead of when they expire.
-      if (!userId || !clientId || !(await hasConsent(userId, clientId))) {
+      // still-unexpired access tokens right away instead of when they expire,
+      // and keep them dead if the app is connected again.
+      if (!userId || !clientId || typeof claims.iat !== "number" || !(await hasConsentSince(userId, clientId, claims.iat))) {
         return Response.json(
           { jsonrpc: "2.0", id: null, error: { code: -32001, message: "This connection was removed. Connect ErgStats again." } },
           {
@@ -81,13 +82,15 @@ function withOAuth(req: Request, next: AuthorizedHandler): Promise<Response> {
   )(req);
 }
 
-async function hasConsent(userId: string, clientId: string): Promise<boolean> {
+/** Whether the user's consent for this app was granted no later than the token was issued (`iat`, in seconds). */
+async function hasConsentSince(userId: string, clientId: string, issuedAt: number): Promise<boolean> {
   const [row] = await db
-    .select({ id: oauthConsent.id })
+    .select({ createdAt: oauthConsent.createdAt })
     .from(oauthConsent)
     .where(and(eq(oauthConsent.userId, userId), eq(oauthConsent.clientId, clientId)))
     .limit(1);
-  return Boolean(row);
+  // iat is truncated to whole seconds, so compare at that precision.
+  return Boolean(row) && issuedAt >= Math.floor(row.createdAt.getTime() / 1000);
 }
 
 async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client> {

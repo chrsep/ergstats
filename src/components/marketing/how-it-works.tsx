@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 const steps = [
   {
     title: "Add ErgStats to your agent",
-    body: "Paste the URL into Claude, ChatGPT, Claude Code, Cursor, VS Code or any MCP client.",
+    body: "Paste the URL into Claude, ChatGPT, Claude Code, Cursor, VS Code or any MCP client that supports sign-in. Others can use an API key.",
   },
   {
     title: "Sign in with Concept2",

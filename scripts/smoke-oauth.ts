@@ -111,6 +111,7 @@ await page.waitForURL("**/sign-in?**");
 if (shots) await page.screenshot({ path: `${shots}/oauth-sign-in.png` });
 await page.getByRole("button", { name: "Sign in with Concept2" }).click();
 await page.waitForURL("**/consent?**");
+const consentUrl = new URL(page.url());
 await page.getByText("Connect Smoke OAuth to ErgStats").waitFor();
 await page.getByText("You’ll go back to 127.0.0.1:53999").or(page.getByText("You'll go back to 127.0.0.1:53999")).waitFor();
 if (shots) await page.screenshot({ path: `${shots}/oauth-consent.png` });
@@ -186,6 +187,32 @@ check(revoked.status === 401, `Expected 401 after disconnecting, got ${revoked.s
 const afterDisconnect = await tokenRequest({ grant_type: "refresh_token", refresh_token: refreshed.refresh_token! });
 check(afterDisconnect.status === 400, `Refresh after disconnecting answered ${afterDisconnect.status}`);
 console.log("disconnect ok");
+
+// 9. A consent URL whose signed parameters were edited doesn't render.
+const tampered = new URL(consentUrl);
+tampered.searchParams.set("redirect_uri", "https://evil.example/callback");
+await page.goto(tampered.href);
+await page.getByText("This connection request isn’t valid").or(page.getByText("This connection request isn't valid")).waitFor();
+console.log("tampered consent rejected");
+
+// 10. Connecting the same app again doesn't bring its old access token back.
+callback = undefined;
+await page.goto(authorizeUrl.href);
+await page.waitForURL("**/consent?**");
+await page.getByRole("button", { name: "Allow" }).click();
+for (let i = 0; i < 100 && !callback; i++) await new Promise((r) => setTimeout(r, 100));
+check(callback?.searchParams.get("code"), "Reconnecting didn't return a code");
+const stale = await fetch(mcpUrl, {
+  method: "POST",
+  headers: {
+    authorization: `Bearer ${refreshed.access_token}`,
+    "content-type": "application/json",
+    accept: "application/json, text/event-stream",
+  },
+  body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+});
+check(stale.status === 401, `Old access token works again after reconnecting (${stale.status})`);
+console.log("reconnect ok");
 
 await browser.close();
 console.log("OAuth smoke test passed.");

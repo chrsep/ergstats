@@ -37,16 +37,17 @@ export async function listConnectedApps(userId: string): Promise<ConnectedAppRow
 }
 
 /**
- * Remove an app's access: its consent, so /mcp rejects its live access tokens,
- * and its refresh tokens, so it can't mint new ones.
+ * Remove an app's access: its tokens, so it can't refresh, then its consent,
+ * so /mcp rejects its live access tokens. Tokens go first so a failure partway
+ * leaves the consent in place and Disconnect can simply be retried.
  */
 export async function disconnectApp(userId: string, consentId: string): Promise<boolean> {
-  // Neon's HTTP driver has no interactive transactions. Deleting the consent
-  // first cuts access on its own; the token cleanup after it is idempotent.
+  // Neon's HTTP driver has no interactive transactions, hence the ordering above.
   const [consent] = await db
-    .delete(oauthConsent)
+    .select({ clientId: oauthConsent.clientId })
+    .from(oauthConsent)
     .where(and(eq(oauthConsent.id, consentId), eq(oauthConsent.userId, userId)))
-    .returning({ clientId: oauthConsent.clientId });
+    .limit(1);
   if (!consent) return false;
   await db
     .delete(oauthAccessToken)
@@ -54,5 +55,6 @@ export async function disconnectApp(userId: string, consentId: string): Promise<
   await db
     .delete(oauthRefreshToken)
     .where(and(eq(oauthRefreshToken.userId, userId), eq(oauthRefreshToken.clientId, consent.clientId)));
+  await db.delete(oauthConsent).where(eq(oauthConsent.id, consentId));
   return true;
 }
