@@ -1,6 +1,6 @@
 import { gunzipSync } from "node:zlib";
 
-import { POSTHOG_HOSTS, RELAY_PATH } from "./config";
+import { POSTHOG_HOSTS, POSTHOG_TOKEN, RELAY_PATH } from "./config";
 
 /**
  * Relays browser analytics from our own origin to PostHog EU, so blockers
@@ -20,6 +20,10 @@ import { POSTHOG_HOSTS, RELAY_PATH } from "./config";
 
 /** Paths PostHog accepts events on. Anything else (static assets, config) passes through untouched. */
 const EVENT_PATH = /^\/(e|i\/v0\/e|batch|capture)\/?$/;
+
+/** posthog-js batches are a few KB; anything far bigger isn't from it. */
+const MAX_BODY_BYTES = 1_000_000;
+const MAX_DECODED_BYTES = 5_000_000;
 
 const regionNames = new Intl.DisplayNames(["en"], { type: "region" });
 
@@ -50,7 +54,7 @@ type CaptureEvent = { properties?: Record<string, unknown> };
  */
 function decodeEvents(body: Buffer, compression: string | null): unknown {
   if (compression === "gzip-js" || (body[0] === 0x1f && body[1] === 0x8b)) {
-    return JSON.parse(gunzipSync(body).toString("utf8"));
+    return JSON.parse(gunzipSync(body, { maxOutputLength: MAX_DECODED_BYTES }).toString("utf8"));
   }
   const text = body.toString("utf8");
   if (compression === "base64" || text.startsWith("data=")) {
@@ -72,6 +76,7 @@ export function withCountry(
   } catch {
     return undefined;
   }
+  if (decoded === null || typeof decoded !== "object") return undefined;
   const batch = decoded as CaptureEvent[] | CaptureEvent | { batch?: CaptureEvent[] } | undefined;
   const events = Array.isArray(batch) ? batch : batch && "batch" in batch ? batch.batch : batch ? [batch as CaptureEvent] : [];
   if (!events?.length) return undefined;
@@ -87,7 +92,16 @@ export function withCountry(
   return JSON.stringify(decoded);
 }
 
-export async function relay(req: Request, fetchImpl: typeof fetch = fetch): Promise<Response> {
+export async function relay(
+  req: Request,
+  fetchImpl: typeof fetch = fetch,
+  enabled = Boolean(POSTHOG_TOKEN),
+): Promise<Response> {
+  // With analytics off the browser never calls here, and nobody else should relay through us.
+  if (!enabled) return new Response(null, { status: 404, headers: { "cache-control": "no-store" } });
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
+    return new Response(null, { status: 413, headers: { "cache-control": "no-store" } });
+  }
   const url = upstreamUrl(new URL(req.url));
   const headers = new Headers();
   for (const name of ["content-type", "user-agent", "accept"]) {
@@ -100,6 +114,7 @@ export async function relay(req: Request, fetchImpl: typeof fetch = fetch): Prom
   let body: BodyInit | undefined;
   if (req.method === "POST") {
     const raw = Buffer.from(await req.arrayBuffer());
+    if (raw.length > MAX_BODY_BYTES) return new Response(null, { status: 413, headers: { "cache-control": "no-store" } });
     body = raw;
     const where = country(req.headers);
     if (where && EVENT_PATH.test(url.pathname)) {

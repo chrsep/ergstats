@@ -4,7 +4,7 @@
  * URLs) that analytics has no use for, so only campaign tags survive.
  */
 
-const KEPT_PARAMS = /^(utm_[a-z]+|ref)$/i;
+const KEPT_PARAMS = /^(utm_[a-z0-9_]+|ref)$/i;
 
 /** A URL without its fragment and without any query parameter except utm_* and ref. */
 export function scrubUrl(value: string): string {

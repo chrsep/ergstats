@@ -12,6 +12,8 @@ import { pseudonymFor } from "./pseudonym";
 
 const TOKEN = "oauth-access-token";
 
+vi.stubEnv("BETTER_AUTH_SECRET", "test-secret");
+
 /** Request bodies come as JSON, possibly gzipped, in a string, a Blob or bytes. */
 async function decode(body: unknown): Promise<unknown> {
   if (body === undefined || body === null) return null;

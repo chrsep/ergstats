@@ -8,7 +8,9 @@ import { createHmac } from "node:crypto";
  * the id, then delete that person in PostHog).
  */
 export function pseudonymFor(userId: string): string {
-  const key = process.env.BETTER_AUTH_SECRET ?? "";
+  const key = process.env.BETTER_AUTH_SECRET;
+  // An empty key would make the ids reversible by anyone who can guess user ids.
+  if (!key) throw new Error("BETTER_AUTH_SECRET is required for analytics ids");
   const digest = createHmac("sha256", key).update(`posthog:${userId}`).digest("base64url");
   return `u_${digest.slice(0, 22)}`;
 }

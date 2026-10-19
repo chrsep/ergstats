@@ -130,7 +130,7 @@ PostHog (EU Cloud) is off until `NEXT_PUBLIC_POSTHOG_TOKEN` is set. It is set up
 - **Relay** (`src/app/pulse`): the browser talks only to our origin. The relay forwards the event body, user agent and IP (for the cookieless hash), never cookies, and adds the visitor's country from Vercel's edge header, since cookieless events get no GeoIP lookup.
 - **MCP usage** (`src/lib/observability/mcp.ts`): every tool call, through PostHog's MCP analytics SDK, with the tool, client, sign-in method, latency, Concept2 calls, response size and a failure category. Tool arguments are reduced to enums and counts; dates, workout ids and responses are dropped. Requests turned away before sign-in are counted too.
 - **Product events**: sign-up, sign-in, app connected or disconnected, API key created or deleted, setup snippet copied.
-- **Errors, traces and logs**: server errors from `src/instrumentation.ts` and failed tool calls go to error tracking; tool calls and their Concept2 requests are traced; `log` from `src/lib/observability/logger.ts` writes to the console and PostHog Logs.
+- **Errors, traces and logs**: server errors from `src/instrumentation.ts` and unexpected tool failures go to error tracking (expected ones, like Concept2 being down, are categorized on the tool call event and logged); tool calls and their Concept2 requests are traced; `log` from `src/lib/observability/logger.ts` writes to the console and PostHog Logs.
 
 Server events identify people by `u_` plus an HMAC of their user id keyed with `BETTER_AUTH_SECRET`, never by email or name. To erase someone's analytics, compute `pseudonymFor(userId)` and delete that person in PostHog. Rotating `BETTER_AUTH_SECRET` starts everyone over with new ids.
 

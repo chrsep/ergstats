@@ -44,7 +44,7 @@ describe("analytics relay", () => {
 
   it("forwards only what PostHog needs: never cookies", async () => {
     const { sent, fetchImpl } = upstream();
-    await relay(new Request("https://www.ergstats.com/pulse/static/x.js", { headers: browserHeaders }), fetchImpl);
+    await relay(new Request("https://www.ergstats.com/pulse/static/x.js", { headers: browserHeaders }), fetchImpl, true);
     const headers = new Headers(sent[0].init.headers);
     expect(headers.get("cookie")).toBeNull();
     expect(headers.get("x-vercel-ip-country")).toBeNull();
@@ -62,6 +62,7 @@ describe("analytics relay", () => {
         body: gzipSync(JSON.stringify(batch)),
       }),
       fetchImpl,
+      true,
     );
     expect(sent[0].url).toBe("https://eu.i.posthog.com/e/?ver=1");
     expect(new Headers(sent[0].init.headers).get("content-type")).toBe("application/json");
@@ -81,6 +82,7 @@ describe("analytics relay", () => {
         body: gzipSync(JSON.stringify([{ event: "$pageview", properties: {} }])),
       }),
       fetchImpl,
+      true,
     );
     expect(bodyOf(sent[0].init)[0].properties.$geoip_country_code).toBe("NL");
   });
@@ -95,6 +97,7 @@ describe("analytics relay", () => {
         body: new URLSearchParams({ data }).toString(),
       }),
       fetchImpl,
+      true,
     );
     expect(bodyOf(sent[0].init).properties.$geoip_country_code).toBe("NL");
   });
@@ -105,6 +108,7 @@ describe("analytics relay", () => {
     await relay(
       new Request("https://www.ergstats.com/pulse/e/?compression=gzip-js", { method: "POST", headers: browserHeaders, body }),
       fetchImpl,
+      true,
     );
     expect(sent[0].url).toContain("compression=gzip-js");
     expect(gunzipSync(sent[0].init.body as Buffer).toString()).toBe("not json");
@@ -114,15 +118,47 @@ describe("analytics relay", () => {
     const fetchImpl = (async () => {
       throw new Error("offline");
     }) as unknown as typeof fetch;
-    const res = await relay(new Request("https://www.ergstats.com/pulse/e/", { method: "POST", body: "{}" }), fetchImpl);
+    const res = await relay(new Request("https://www.ergstats.com/pulse/e/", { method: "POST", body: "{}" }), fetchImpl, true);
     expect(res.status).toBe(502);
+  });
+
+  it("passes JSON that isn't an event through untouched", async () => {
+    const { sent, fetchImpl } = upstream();
+    const res = await relay(
+      new Request("https://www.ergstats.com/pulse/e/", { method: "POST", headers: browserHeaders, body: "5" }),
+      fetchImpl,
+      true,
+    );
+    expect(res.status).toBe(200);
+    expect(String(sent[0].init.body)).toBe("5");
+  });
+
+  it("refuses oversized bodies and doesn't inflate gzip bombs", async () => {
+    const { sent, fetchImpl } = upstream();
+    const big = await relay(
+      new Request("https://www.ergstats.com/pulse/e/", { method: "POST", headers: browserHeaders, body: "x".repeat(1_000_001) }),
+      fetchImpl,
+      true,
+    );
+    expect(big.status).toBe(413);
+    const bomb = gzipSync(Buffer.alloc(20_000_000, 0x20));
+    await relay(new Request("https://www.ergstats.com/pulse/e/", { method: "POST", headers: browserHeaders, body: bomb }), fetchImpl, true);
+    expect(sent).toHaveLength(1);
+    expect(Buffer.compare(sent[0].init.body as Buffer, bomb)).toBe(0);
+  });
+
+  it("relays nothing while analytics is off", async () => {
+    const { sent, fetchImpl } = upstream();
+    const res = await relay(new Request("https://www.ergstats.com/pulse/e/", { method: "POST", body: "{}" }), fetchImpl, false);
+    expect(res.status).toBe(404);
+    expect(sent).toHaveLength(0);
   });
 });
 
 describe("URL scrubbing", () => {
   it("keeps campaign tags and drops everything else in the query", () => {
-    expect(scrubUrl("https://www.ergstats.com/consent?client_id=abc&request_uri=x&utm_source=hn#frag")).toBe(
-      "https://www.ergstats.com/consent?utm_source=hn",
+    expect(scrubUrl("https://www.ergstats.com/consent?client_id=abc&request_uri=x&utm_source=hn&utm_source_platform=ads#frag")).toBe(
+      "https://www.ergstats.com/consent?utm_source=hn&utm_source_platform=ads",
     );
     expect(scrubUrl("/sign-in?callbackURL=/dashboard")).toBe("/sign-in");
   });

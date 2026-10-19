@@ -15,7 +15,8 @@ let client: PostHog | null | undefined;
 
 export function posthogServer(): PostHog | null {
   if (client !== undefined) return client;
-  client = POSTHOG_TOKEN
+  // Without the secret there is no way to pseudonymize people, so nothing is sent.
+  client = POSTHOG_TOKEN && process.env.BETTER_AUTH_SECRET
     ? new PostHog(POSTHOG_TOKEN, {
         host: POSTHOG_HOSTS.ingest,
         disableGeoip: true,
