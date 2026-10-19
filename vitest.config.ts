@@ -30,7 +30,8 @@ export default defineConfig({
           browser: {
             enabled: true,
             headless: true,
-            provider: playwright({}),
+            // CHROMIUM_PATH points at a preinstalled Chromium (e.g. in CI images) instead of a Playwright download.
+            provider: playwright({ launchOptions: { executablePath: process.env.CHROMIUM_PATH } }),
             instances: [{ browser: "chromium" }],
           },
         },

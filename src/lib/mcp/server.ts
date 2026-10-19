@@ -3,7 +3,8 @@ import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { account } from "@/db/schema";
-import { appUrl, auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
+import { appUrl } from "@/lib/app-url";
+import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
 import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
 

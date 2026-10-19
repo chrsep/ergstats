@@ -1,20 +1,52 @@
-import type { Preview } from '@storybook/nextjs-vite'
+import type { Preview } from "@storybook/nextjs-vite";
+import { useEffect } from "react";
+
+import { TooltipProvider } from "../src/components/ui/tooltip";
+import "../src/app/globals.css";
 
 const preview: Preview = {
-  parameters: {
-    controls: {
-      matchers: {
-       color: /(background|color)$/i,
-       date: /Date$/i,
+  globalTypes: {
+    theme: {
+      description: "Color theme",
+      toolbar: {
+        title: "Theme",
+        icon: "mirror",
+        items: [
+          { value: "light", title: "Light" },
+          { value: "dark", title: "Dark" },
+        ],
+        dynamicTitle: true,
       },
     },
-
+  },
+  initialGlobals: { theme: "light" },
+  decorators: [
+    (Story, context) => {
+      const dark = context.globals.theme === "dark";
+      useEffect(() => {
+        document.documentElement.classList.toggle("dark", dark);
+      }, [dark]);
+      return (
+        <TooltipProvider>
+          <div className="bg-background font-sans text-foreground antialiased">
+            <Story />
+          </div>
+        </TooltipProvider>
+      );
+    },
+  ],
+  parameters: {
+    layout: "padded",
+    controls: {
+      matchers: {
+        color: /(background|color)$/i,
+        date: /Date$/i,
+      },
+    },
     a11y: {
-      // 'todo' - show a11y violations in the test UI only
-      // 'error' - fail CI on a11y violations
-      // 'off' - skip a11y checks entirely
-      test: 'todo'
-    }
+      // Fail the Storybook test run on accessibility violations.
+      test: "error",
+    },
   },
 };
 

@@ -6,17 +6,10 @@ import { genericOAuth } from "better-auth/plugins";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { appUrl } from "@/lib/app-url";
 import { CONCEPT2_SCOPES, concept2BaseUrl, Concept2Client } from "@/lib/concept2/client";
 
 export const CONCEPT2_PROVIDER_ID = "concept2";
-
-/** Public URL of this deployment. Set BETTER_AUTH_URL; Vercel's production URL is the fallback. */
-export function appUrl(): string {
-  const configured = process.env.BETTER_AUTH_URL;
-  if (configured) return configured.replace(/\/+$/, "");
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  return "http://localhost:3000";
-}
 
 const base = concept2BaseUrl();
 
@@ -43,9 +36,8 @@ export const auth = betterAuth({
           clientSecret: process.env.CONCEPT2_CLIENT_SECRET ?? "",
           authorizationUrl: `${base}/oauth/authorize`,
           tokenUrl: `${base}/oauth/access_token`,
-          // Concept2 wants comma-separated scopes, so set the param directly.
-          scopes: [],
-          authorizationUrlParams: { scope: CONCEPT2_SCOPES },
+          // Concept2 wants comma-separated scopes; BetterAuth joins with spaces, so pass one string.
+          scopes: [CONCEPT2_SCOPES],
           refreshTokenParams: { scope: CONCEPT2_SCOPES },
           pkce: false,
           // Concept2 access tokens last 7 days.
