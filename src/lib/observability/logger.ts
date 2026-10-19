@@ -4,7 +4,7 @@ import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
 
-import { deploymentEnvironment, POSTHOG_HOSTS, POSTHOG_TOKEN, release } from "./config";
+import { deploymentEnvironment, POSTHOG_HOSTS, release, serverToken } from "./config";
 import { posthogServer } from "./server";
 
 /**
@@ -20,7 +20,8 @@ let logger: Logger | null | undefined;
 
 function otelLogger(): Logger | null {
   if (logger !== undefined) return logger;
-  if (!POSTHOG_TOKEN) return (logger = null);
+  const token = serverToken();
+  if (!token) return (logger = null);
   provider = new LoggerProvider({
     resource: resourceFromAttributes({
       "service.name": "ergstats",
@@ -31,7 +32,7 @@ function otelLogger(): Logger | null {
       new BatchLogRecordProcessor({
         exporter: new OTLPLogExporter({
           url: `${POSTHOG_HOSTS.ingest}/i/v1/logs`,
-          headers: { Authorization: `Bearer ${POSTHOG_TOKEN}` },
+          headers: { Authorization: `Bearer ${token}` },
         }),
       }),
     ],

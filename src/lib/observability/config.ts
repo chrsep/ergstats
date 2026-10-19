@@ -6,6 +6,14 @@
 /** The project token (`phc_...`). It is public by design: it can only write events. */
 export const POSTHOG_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_TOKEN || undefined;
 
+/**
+ * The token for server-side events, traces and logs. Those also need
+ * BETTER_AUTH_SECRET, which keys the pseudonymous ids, so without it nothing is sent.
+ */
+export function serverToken(): string | undefined {
+  return process.env.BETTER_AUTH_SECRET ? POSTHOG_TOKEN : undefined;
+}
+
 /** EU Cloud (Frankfurt) unless the project lives in US Cloud. */
 const region = process.env.NEXT_PUBLIC_POSTHOG_REGION === "us" ? "us" : "eu";
 

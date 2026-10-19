@@ -1,6 +1,6 @@
 import { PostHog } from "posthog-node";
 
-import { deploymentEnvironment, POSTHOG_HOSTS, POSTHOG_TOKEN, release } from "./config";
+import { deploymentEnvironment, POSTHOG_HOSTS, release, serverToken } from "./config";
 import { pseudonymFor } from "./pseudonym";
 
 /**
@@ -15,9 +15,9 @@ let client: PostHog | null | undefined;
 
 export function posthogServer(): PostHog | null {
   if (client !== undefined) return client;
-  // Without the secret there is no way to pseudonymize people, so nothing is sent.
-  client = POSTHOG_TOKEN && process.env.BETTER_AUTH_SECRET
-    ? new PostHog(POSTHOG_TOKEN, {
+  const token = serverToken();
+  client = token
+    ? new PostHog(token, {
         host: POSTHOG_HOSTS.ingest,
         disableGeoip: true,
         // Next.js reports uncaught errors to src/instrumentation.ts, which sends them with context.
