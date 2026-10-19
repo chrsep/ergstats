@@ -37,7 +37,7 @@ export function ApiKeyTable({
             <KeyRoundIcon />
           </EmptyMedia>
           <EmptyTitle>No API keys yet</EmptyTitle>
-          <EmptyDescription>Create a key to connect Claude Code, Cursor or another MCP client.</EmptyDescription>
+          <EmptyDescription>Create a key for a client or script that can&apos;t sign in.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );

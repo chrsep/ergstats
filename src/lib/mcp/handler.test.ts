@@ -6,6 +6,8 @@ import { allResults, twoK, twoKStrokes, user } from "@/lib/concept2/__fixtures__
 import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
 
 const GOOD_KEY = "erg_test_key";
+const GOOD_TOKEN = "oauth-access-token";
+const RESOURCE_METADATA = "https://ergstats.test/.well-known/oauth-protected-resource/mcp";
 
 /** A fake Concept2 Logbook API serving the fixtures. */
 async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
@@ -31,11 +33,22 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
 
 const handler = createErgstatsMcpHandler({
   dashboardUrl: "https://ergstats.com/dashboard",
+  resourceMetadataUrl: RESOURCE_METADATA,
   today: () => "2026-10-19",
   async verifyKey(key): Promise<KeyCheck> {
     if (key === GOOD_KEY) return { ok: true, authInfo: { token: key, clientId: "k1", scopes: [], extra: { userId: "u1" } } };
     if (key === "erg_busy") return { ok: false, status: 429, message: "slow down", retryAfterSeconds: 30 };
     return { ok: false, status: 401, message: "bad key" };
+  },
+  // Stands in for Better Auth's token verification: one good token, otherwise the sign-in challenge.
+  async withOAuth(req, next) {
+    if (req.headers.get("authorization") === `Bearer ${GOOD_TOKEN}`) {
+      return next(req, { token: GOOD_TOKEN, clientId: "https://claude.ai/oauth/mcp-oauth-client-metadata", scopes: ["logbook:read"], extra: { userId: "u1" } });
+    }
+    return new Response(null, {
+      status: 401,
+      headers: { "www-authenticate": `Bearer resource_metadata="${RESOURCE_METADATA}", scope="logbook:read"` },
+    });
   },
   async getClient(authInfo) {
     expect(authInfo?.extra?.userId).toBe("u1");
@@ -45,9 +58,9 @@ const handler = createErgstatsMcpHandler({
 
 const clients: Client[] = [];
 
-async function connect(key = GOOD_KEY) {
+async function connect(credential = GOOD_KEY) {
   const transport = new StreamableHTTPClientTransport(new URL("https://ergstats.test/mcp"), {
-    requestInit: { headers: { authorization: `Bearer ${key}` } },
+    requestInit: { headers: { authorization: `Bearer ${credential}` } },
     fetch: (input, init) => handler(new Request(input, init)),
   });
   const client = new Client({ name: "test", version: "1.0.0" });
@@ -61,10 +74,25 @@ afterEach(async () => {
 });
 
 describe("MCP endpoint", () => {
-  it("rejects requests without a key, with a pointer to the dashboard", async () => {
+  it("answers requests without credentials with the sign-in challenge", async () => {
     const res = await handler(new Request("https://ergstats.test/mcp", { method: "POST", body: "{}" }));
     expect(res.status).toBe(401);
-    expect((await res.json()).error.message).toContain("https://ergstats.com/dashboard");
+    expect(res.headers.get("www-authenticate")).toContain(`resource_metadata="${RESOURCE_METADATA}"`);
+  });
+
+  it("rejects a bad API key, pointing the client at sign-in instead", async () => {
+    const res = await handler(
+      new Request("https://ergstats.test/mcp", { method: "POST", body: "{}", headers: { authorization: "Bearer erg_nope" } }),
+    );
+    expect(res.status).toBe(401);
+    expect(res.headers.get("www-authenticate")).toContain(`resource_metadata="${RESOURCE_METADATA}"`);
+    expect((await res.json()).error.message).toBe("bad key");
+  });
+
+  it("serves tools to a client signed in with OAuth", async () => {
+    const client = await connect(GOOD_TOKEN);
+    const result = await client.callTool({ name: "get_profile", arguments: {} });
+    expect(result.isError).toBeFalsy();
   });
 
   it("returns 429 with Retry-After when a key is rate limited", async () => {
@@ -90,6 +118,7 @@ describe("MCP endpoint", () => {
       expect(tool.annotations?.readOnlyHint).toBe(true);
       expect(tool.outputSchema).toBeDefined();
       expect(tool.description?.length).toBeGreaterThan(20);
+      expect(tool._meta?.securitySchemes).toEqual([{ type: "oauth2", scopes: ["logbook:read"] }]);
     }
     expect(client.getInstructions()).toContain("Concept2 Logbook");
   });

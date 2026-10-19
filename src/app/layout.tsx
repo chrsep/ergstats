@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.ergstats.com"),
   title: { default: "ErgStats · Your Concept2 Logbook in your AI tools", template: "%s · ErgStats" },
   description:
-    "Connect your Concept2 Logbook to Claude, Cursor and any MCP client. Ask about your splits, PRs and training load in plain language.",
+    "Connect your Concept2 Logbook to Claude, ChatGPT, Cursor and any MCP client. Ask about your splits, PRs and training load in plain language.",
   openGraph: { siteName: "ErgStats", type: "website" },
 };
 

@@ -1,21 +1,29 @@
 # ErgStats
 
-ErgStats is a hosted [MCP](https://modelcontextprotocol.io) server for the Concept2 Logbook. Sign in with Concept2, create an API key, and ask Claude Code, Cursor or any MCP client about your splits, PBs and training load.
+ErgStats is a hosted [MCP](https://modelcontextprotocol.io) server for the Concept2 Logbook. Add `https://www.ergstats.com/mcp` to Claude, ChatGPT, Claude Code, Cursor or any MCP client, sign in with Concept2, and ask about your splits, PBs and training load.
 
 Not affiliated with or endorsed by Concept2.
 
 ## How it works
 
-1. **Sign in with Concept2.** BetterAuth runs the Concept2 OAuth flow (scopes `user:read,results:read`, read-only). The Concept2 tokens are stored encrypted in Postgres and refreshed automatically before they expire.
-2. **Create an API key** on the dashboard (BetterAuth API key plugin, `erg_` prefix, 120 requests per minute per key).
-3. **Connect a client** to `https://www.ergstats.com/mcp` with `Authorization: Bearer <key>`:
+1. **Add the server.** Paste `https://www.ergstats.com/mcp` into the client: a custom connector in Claude or ChatGPT, `claude mcp add --transport http ergstats https://www.ergstats.com/mcp` in Claude Code, or the `url` in Cursor or VS Code.
+2. **Sign in with Concept2.** The client opens ErgStats in a browser. BetterAuth runs the Concept2 OAuth flow (scopes `user:read,results:read`, read-only), then a consent screen asks you to allow the app. The Concept2 tokens are stored encrypted in Postgres and refreshed automatically before they expire.
+3. **Ask.** The client gets its own access token for ErgStats and calls the tools. Disconnect any app from the dashboard.
 
-   ```sh
-   claude mcp add --transport http ergstats https://www.ergstats.com/mcp \
-     --header "Authorization: Bearer erg_..."
-   ```
+API keys (`erg_` prefix, 120 requests per minute per key) still work for clients and scripts that can't sign in: send `Authorization: Bearer erg_...`.
 
-The dashboard has ready-to-paste setup for Claude Code, Cursor, VS Code and Claude Desktop.
+### OAuth for MCP clients
+
+ErgStats is its own OAuth 2.1 authorization server, like Sentry's and Linear's MCP servers, built on Better Auth's [`@better-auth/mcp`](https://www.better-auth.com/docs/plugins/mcp) and `@better-auth/cimd` plugins. It follows the MCP 2026-07-28 authorization spec and what [Claude](https://claude.com/docs/connectors/building/authentication) and [ChatGPT](https://developers.openai.com/apps-sdk/build/auth) document for connectors:
+
+- `/mcp` answers a request without a valid token with `401` and `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/mcp", scope="logbook:read"`.
+- Protected resource metadata (RFC 9728) names the issuer `https://www.ergstats.com/api/auth`; its metadata is at `/.well-known/oauth-authorization-server/api/auth` (RFC 8414) and `/api/auth/.well-known/openid-configuration`.
+- Clients identify themselves with a Client ID Metadata Document (Claude, Claude Code and ChatGPT do), or fall back to dynamic client registration (RFC 7591). Loopback redirects match on any port, as native clients need.
+- Authorization code with PKCE (S256) only, `iss` on every authorization response (RFC 9207), and access tokens bound to the `/mcp` URL through the `resource` parameter (RFC 8707). Access tokens are JWTs that `/mcp` verifies against `/api/auth/jwks`; refresh tokens rotate.
+- Each tool declares `securitySchemes` (`oauth2`, `logbook:read`) in `_meta` for ChatGPT.
+- Disconnecting an app deletes its consent, which `/mcp` checks on every request, and its tokens.
+
+`scripts/smoke-oauth.ts` runs the whole flow a client goes through, from the first 401 to a tool call, a refresh and a disconnect.
 
 ## MCP tools
 
@@ -37,18 +45,19 @@ The server runs on [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) 2.
 - Next.js 16 (App Router, Cache Components), React 19, TypeScript
 - shadcn/ui (base-nova, Base UI) and Tailwind CSS 4
 - Storybook 10 with interaction and accessibility tests run through Vitest
-- BetterAuth 1.7 (generic OAuth for Concept2, API key plugin)
+- BetterAuth 1.7 (generic OAuth for Concept2, MCP OAuth provider with CIMD, API key plugin)
 - Drizzle ORM on Neon Postgres
 - Deployed on Vercel
 
 ## Code map
 
 ```
-src/app/                 Pages (/, /sign-in, /dashboard), /api/auth/*, /mcp
+src/app/                 Pages (/, /sign-in, /consent, /dashboard), /api/auth/*, /.well-known/*, /mcp
 src/components/          App components, each with a .stories.tsx
 src/components/ui/       shadcn components (generated, edit sparingly)
 src/lib/concept2/        Logbook API client, formatting and analysis
-src/lib/mcp/             Tool definitions, schemas, the /mcp handler, client setup snippets
+src/lib/mcp/             Tool definitions, schemas, scopes, the /mcp handler, client setup snippets
+src/lib/oauth/           Connected apps: list and disconnect
 src/lib/auth.ts          BetterAuth config
 src/db/                  Drizzle schema (generated by `pnpm auth:schema`) and client
 drizzle/                 SQL migrations
@@ -84,7 +93,8 @@ pnpm typecheck
 pnpm test               # unit tests and MCP end-to-end tests through the MCP client SDK
 pnpm test:storybook     # every story rendered in Chromium, with play functions and axe checks
 pnpm storybook          # component workshop on http://localhost:6006
-node scripts/smoke.ts   # full flow against a running app + fake Concept2: sign in, create a key, call MCP
+node scripts/smoke.ts         # against a running app + fake Concept2: sign in, create a key, call MCP
+node scripts/smoke-oauth.ts   # the OAuth connect flow an MCP client runs, then refresh and disconnect
 ```
 
 Set `CHROMIUM_PATH` to use an already-installed Chromium for the browser tests.
@@ -94,7 +104,7 @@ Set `CHROMIUM_PATH` to use an already-installed Chromium for the browser tests.
 The auth tables come from BetterAuth. After changing `src/lib/auth.ts` plugins, regenerate the schema and a migration:
 
 ```sh
-pnpm auth:schema
+pnpm auth:schema   # if the `auth` CLI isn't installed: pnpm dlx auth@1.7.11 generate --config src/lib/auth.ts --output src/db/schema.ts
 pnpm db:generate
 ```
 

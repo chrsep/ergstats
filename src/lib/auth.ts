@@ -1,13 +1,17 @@
 import { apiKey } from "@better-auth/api-key";
+import { cimd } from "@better-auth/cimd";
+import { fetchClientMetadataResource } from "@better-auth/cimd/node";
+import { mcp } from "@better-auth/mcp";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
-import { genericOAuth } from "better-auth/plugins";
+import { genericOAuth, jwt } from "better-auth/plugins";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { appUrl } from "@/lib/app-url";
+import { appUrl, mcpUrl } from "@/lib/app-url";
 import { CONCEPT2_SCOPES, concept2BaseUrl, Concept2Client } from "@/lib/concept2/client";
+import { MCP_SCOPE } from "@/lib/mcp/scopes";
 
 export const CONCEPT2_PROVIDER_ID = "concept2";
 
@@ -65,6 +69,23 @@ export const auth = betterAuth({
       // Generous enough for an agent working through a training history.
       rateLimit: { enabled: true, timeWindow: 60_000, maxRequests: 120 },
     }),
+    // Signs the OAuth access tokens MCP clients get, and serves the JWKS /mcp verifies them against.
+    jwt({ disableSettingJwtHeader: true }),
+    // ErgStats is its own OAuth 2.1 authorization server for MCP clients (Claude, ChatGPT, Cursor...),
+    // the way Sentry's and Linear's MCP servers are. People approve access with their Concept2 sign-in.
+    mcp({
+      resource: mcpUrl(),
+      loginPage: "/sign-in",
+      consentPage: "/consent",
+      scopes: ["openid", "profile", "email", "offline_access", MCP_SCOPE],
+      // Dynamic client registration is the fallback for clients without Client ID Metadata Documents.
+      allowDynamicClientRegistration: true,
+      allowUnauthenticatedClientRegistration: true,
+      // Native clients (Cursor, older Claude Code) register loopback callbacks without application_type.
+      clientRegistrationDefaultApplicationType: "infer",
+    }),
+    // Claude and ChatGPT identify themselves with a Client ID Metadata Document URL instead of registering.
+    cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),
     nextCookies(),
   ],
 });
