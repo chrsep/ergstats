@@ -229,4 +229,32 @@ describe("MCP endpoint", () => {
     expect(result.isError).toBe(true);
     expect((result.content as { text: string }[])[0].text).toContain("Not found");
   });
+
+  it("gives 2026-07-28 clients no reason to hold a subscription stream open", async () => {
+    // The server is stateless and its tool list is fixed, so a listen stream would
+    // only ever pin a serverless function open until its time limit.
+    const methods: string[] = [];
+    const transport = new StreamableHTTPClientTransport(new URL("https://ergstats.test/mcp"), {
+      requestInit: { headers: { authorization: `Bearer ${GOOD_KEY}` } },
+      fetch: (input, init) => {
+        const body = typeof init?.body === "string" ? (JSON.parse(init.body) as { method?: string }) : undefined;
+        if (body?.method) methods.push(body.method);
+        return handler(new Request(input, init));
+      },
+    });
+    const client = new Client(
+      { name: "test", version: "1.0.0" },
+      { versionNegotiation: { mode: { pin: "2026-07-28" } }, listChanged: { tools: { onChanged: () => {} } } },
+    );
+    await client.connect(transport);
+    clients.push(client);
+    expect(methods).toContain("server/discover");
+    expect(client.getServerCapabilities()?.tools?.listChanged).toBe(false);
+    expect(methods).not.toContain("subscriptions/listen");
+
+    // A client that asks anyway is answered at once and the stream ends gracefully.
+    const subscription = await client.listen({ toolsListChanged: true });
+    expect(subscription.honoredFilter).toEqual({});
+    await expect(subscription.closed).resolves.toBe("graceful");
+  });
 });

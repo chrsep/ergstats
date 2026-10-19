@@ -57,6 +57,12 @@ export function createErgstatsMcpHandler(deps: HandlerDeps) {
   const mcp = createMcpHandler((server) => registerTools(server, deps), {
     serverInfo: { name: "ergstats", version: SERVER_VERSION },
     instructions: SERVER_INSTRUCTIONS,
+    // Every request gets a fresh server with the same fixed tool list, so there is
+    // never a list-changed notification to deliver. Saying so stops 2026-07-28
+    // clients from opening a `subscriptions/listen` stream after they connect: on
+    // Vercel that stream would hold a function open until its 60 s limit, once a
+    // minute, for as long as the client stays connected.
+    capabilities: { tools: { listChanged: false } },
   });
 
   const run: AuthorizedHandler = (req, authInfo) => {
