@@ -1,6 +1,7 @@
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { createMcpHandler } from "mcp-handler";
 
+import type { McpTelemetry } from "@/lib/observability/mcp";
 import { registerTools, SERVER_INSTRUCTIONS, type ToolDeps } from "./tools";
 
 export type KeyCheck =
@@ -22,6 +23,8 @@ export interface HandlerDeps extends ToolDeps {
   dashboardUrl: string;
   /** RFC 9728 protected resource metadata, so a client holding a bad key can switch to signing in. */
   resourceMetadataUrl: string;
+  /** Usage analytics, when PostHog is configured. */
+  telemetry?: McpTelemetry;
 }
 
 export const SERVER_VERSION = "0.1.0";
@@ -54,28 +57,46 @@ function jsonError(status: number, message: string, headers: Record<string, stri
  * token, which connectors like Claude and ChatGPT get by signing in, or an API key.
  */
 export function createErgstatsMcpHandler(deps: HandlerDeps) {
-  const mcp = createMcpHandler((server) => registerTools(server, deps), {
-    serverInfo: { name: "ergstats", version: SERVER_VERSION },
-    instructions: SERVER_INSTRUCTIONS,
-    // Every request gets a fresh server with the same fixed tool list, so there is
-    // never a list-changed notification to deliver. Saying so stops 2026-07-28
-    // clients from opening a `subscriptions/listen` stream after they connect: on
-    // Vercel that stream would hold a function open until its 60 s limit, once a
-    // minute, for as long as the client stays connected.
-    capabilities: { tools: { listChanged: false } },
-  });
+  const { telemetry } = deps;
+  const mcp = createMcpHandler(
+    (server) => {
+      telemetry?.instrumentServer(server);
+      registerTools(server, deps);
+    },
+    {
+      serverInfo: { name: "ergstats", version: SERVER_VERSION },
+      instructions: SERVER_INSTRUCTIONS,
+      // Every request gets a fresh server with the same fixed tool list, so there is
+      // never a list-changed notification to deliver. Saying so stops 2026-07-28
+      // clients from opening a `subscriptions/listen` stream after they connect: on
+      // Vercel that stream would hold a function open until its 60 s limit, once a
+      // minute, for as long as the client stays connected.
+      capabilities: { tools: { listChanged: false } },
+    },
+  );
 
   const run: AuthorizedHandler = (req, authInfo) => {
     req.auth = authInfo;
-    return mcp(req);
+    return telemetry ? telemetry.withRequest(req, authInfo, () => mcp(req)) : mcp(req);
   };
 
   return async function handler(req: Request): Promise<Response> {
     const key = readApiKey(req);
-    if (!key) return deps.withOAuth(req, run);
+    if (!key) {
+      let authorized = false;
+      const res = await deps.withOAuth(req, (request, authInfo) => {
+        authorized = true;
+        return run(request, authInfo);
+      });
+      // A client's first, tokenless request is how every sign-in starts, so
+      // these also count connection attempts against those that get a token.
+      if (!authorized) telemetry?.rejected(req, req.headers.has("authorization") ? "invalid_token" : "no_token", res.status);
+      return res;
+    }
 
     const check = await deps.verifyKey(key);
     if (!check.ok) {
+      telemetry?.rejected(req, check.status === 429 ? "rate_limited" : "invalid_api_key", check.status);
       const headers: Record<string, string> =
         check.status === 401
           ? { "www-authenticate": `Bearer resource_metadata="${deps.resourceMetadataUrl}", error="invalid_token"` }

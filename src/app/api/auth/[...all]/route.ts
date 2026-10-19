@@ -1,5 +1,9 @@
 import { toNextJsHandler } from "better-auth/next-js";
 
 import { auth } from "@/lib/auth";
+import { withTelemetry } from "@/lib/observability/telemetry";
 
-export const { GET, POST } = toNextJsHandler(auth);
+const handlers = toNextJsHandler(auth);
+
+export const GET = withTelemetry(handlers.GET);
+export const POST = withTelemetry(handlers.POST);

@@ -7,12 +7,23 @@ import { account, oauthConsent } from "@/db/schema";
 import { appUrl, mcpUrl, resourceMetadataUrl } from "@/lib/app-url";
 import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
+import { log } from "@/lib/observability/logger";
+import { createMcpTelemetry } from "@/lib/observability/mcp";
 import { type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck } from "./handler";
 import { MCP_SCOPE } from "./scopes";
 
 class NotConnectedError extends Error {
   name = "NotConnectedError";
+  constructor(
+    message: string,
+    /** For analytics: no Concept2 account linked, or its token could not be refreshed. */
+    readonly reason: "no_account" | "refresh_failed",
+  ) {
+    super(message);
+  }
 }
+
+const telemetry = createMcpTelemetry();
 
 async function verifyKey(key: string): Promise<KeyCheck> {
   const result = await auth.api.verifyApiKey({ body: { key } });
@@ -95,7 +106,7 @@ async function hasConsentSince(userId: string, clientId: string, issuedAt: numbe
 
 async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client> {
   const userId = authInfo?.extra?.userId;
-  if (typeof userId !== "string") throw new NotConnectedError("Missing credentials.");
+  if (typeof userId !== "string") throw new NotConnectedError("Missing credentials.", "no_account");
 
   const [row] = await db
     .select({ id: account.id })
@@ -103,7 +114,7 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
     .where(and(eq(account.userId, userId), eq(account.providerId, CONCEPT2_PROVIDER_ID)))
     .limit(1);
   if (!row) {
-    throw new NotConnectedError(`No Concept2 Logbook is connected. Sign in at ${appUrl()} to connect it.`);
+    throw new NotConnectedError(`No Concept2 Logbook is connected. Sign in at ${appUrl()} to connect it.`, "no_account");
   }
 
   // Refreshes the Concept2 token (and stores the rotated refresh token) when it is about to expire.
@@ -111,12 +122,15 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
   try {
     ({ accessToken } = await auth.api.getAccessToken({ body: { accountId: row.id, userId } }));
   } catch (error) {
-    console.error("[mcp] Concept2 token refresh failed", error);
+    log.warn("[mcp] Concept2 token refresh failed", {}, error);
   }
   if (!accessToken) {
-    throw new NotConnectedError(`Your Concept2 connection has expired. Sign in at ${appUrl()} again to reconnect.`);
+    throw new NotConnectedError(
+      `Your Concept2 connection has expired. Sign in at ${appUrl()} again to reconnect.`,
+      "refresh_failed",
+    );
   }
-  return new Concept2Client({ accessToken });
+  return new Concept2Client({ accessToken, fetch: telemetry?.fetch });
 }
 
 export const mcpHandler = createErgstatsMcpHandler({
@@ -125,4 +139,6 @@ export const mcpHandler = createErgstatsMcpHandler({
   getClient,
   dashboardUrl: `${appUrl()}/dashboard`,
   resourceMetadataUrl: resourceMetadataUrl(),
+  telemetry,
+  onToolError: telemetry?.toolFailed,
 });

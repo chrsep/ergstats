@@ -31,6 +31,8 @@ export interface ToolDeps {
   getClient: (authInfo: AuthInfo | undefined) => Promise<Concept2Client>;
   /** Today's date as YYYY-MM-DD. Injected so tests are deterministic. */
   today?: () => string;
+  /** Told about every failed tool call, for error tracking. Without it, unexpected failures are logged to the console. */
+  onToolError?: (error: unknown) => void;
 }
 
 /**
@@ -59,14 +61,15 @@ function ok(text: string, structuredContent: Record<string, unknown>): CallToolR
   return { content: [{ type: "text", text }], structuredContent };
 }
 
-function fail(error: unknown): CallToolResult {
+function fail(error: unknown, onError?: (error: unknown) => void): CallToolResult {
   const message =
     error instanceof Concept2Error
       ? error.message
       : error instanceof Error && error.name === "NotConnectedError"
         ? error.message
         : "Something went wrong reading your Concept2 Logbook. Try again in a moment.";
-  if (!(error instanceof Concept2Error)) console.error("[mcp] tool failed", error);
+  if (onError) onError(error);
+  else if (!(error instanceof Concept2Error)) console.error("[mcp] tool failed", error);
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
@@ -136,7 +139,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter(Boolean).join("\n"), profile);
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -173,7 +176,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         const text = [header, ...workouts.map(workoutListLine)].join("\n");
         return ok(text, { workouts, page, totalPages, total });
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -284,7 +287,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter((l) => l !== null).join("\n"), { ...detail });
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -371,7 +374,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ].join("\n");
         return ok(text, { ...base, buckets, strokes: [], nextOffset: null });
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -413,7 +416,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter((l) => l !== null).join("\n"), { ...summary });
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -453,7 +456,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
                 .join("\n");
         return ok(text, { bests, workoutsScanned: results.length, truncated });
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -523,7 +526,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
                 .join("\n");
         return ok(text, { challenges });
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );

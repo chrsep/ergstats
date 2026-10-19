@@ -4,6 +4,7 @@ import { fetchClientMetadataResource } from "@better-auth/cimd/node";
 import { mcp } from "@better-auth/mcp";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { genericOAuth, jwt } from "better-auth/plugins";
 
@@ -12,14 +13,85 @@ import * as schema from "@/db/schema";
 import { appUrl, mcpUrl } from "@/lib/app-url";
 import { CONCEPT2_SCOPES, concept2BaseUrl, Concept2Client } from "@/lib/concept2/client";
 import { MCP_SCOPE } from "@/lib/mcp/scopes";
+import { log } from "@/lib/observability/logger";
+import { captureServerEvent } from "@/lib/observability/server";
 
 export const CONCEPT2_PROVIDER_ID = "concept2";
 
 const base = concept2BaseUrl();
 
+/** Where an OAuth redirect goes, as a coarse app label: claude.ai, chatgpt.com, or loopback for local clients like Claude Code. */
+function redirectHost(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  try {
+    const { hostname, protocol } = new URL(url);
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]") return "loopback";
+    return protocol === "https:" ? hostname : protocol.replace(/:$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Product events for the sign-up and connection funnel. They carry the
+ * pseudonymous id only (see src/lib/observability), never an email or name.
+ */
+const productEvents = createAuthMiddleware(async (ctx) => {
+  // The sign-in callback answers with a redirect, which Better Auth returns as an error.
+  if (ctx.path.startsWith("/callback/") && ctx.context.newSession) {
+    captureServerEvent("user_signed_in", { provider: CONCEPT2_PROVIDER_ID }, ctx.context.newSession.user.id);
+    return;
+  }
+  const returned: unknown = ctx.context.returned;
+  if (returned instanceof Error) return;
+  const userId = ctx.context.session?.user.id;
+  const body = (ctx.body ?? {}) as Record<string, unknown>;
+  switch (ctx.path) {
+    case "/oauth2/consent":
+      captureServerEvent(
+        body.accept === false ? "mcp_app_denied" : "mcp_app_connected",
+        { app: redirectHost((returned as { url?: unknown } | null)?.url) },
+        userId,
+      );
+      break;
+    case "/oauth2/token":
+      // The code exchange is the moment a client finishes connecting; refreshes are routine.
+      if (body.grant_type === "authorization_code") captureServerEvent("mcp_token_issued", { grant_type: "authorization_code" });
+      break;
+    case "/oauth2/register":
+      captureServerEvent("mcp_client_registered", { app: redirectHost((body.redirect_uris as unknown[] | undefined)?.[0]) });
+      break;
+    case "/api-key/create":
+      captureServerEvent("api_key_created", {}, userId);
+      break;
+    case "/api-key/delete":
+      captureServerEvent("api_key_deleted", {}, userId);
+      break;
+  }
+});
+
 export const auth = betterAuth({
   appName: "ErgStats",
   baseURL: appUrl(),
+  // Better Auth's warnings and errors, into the app's logs. Messages only:
+  // the extra arguments can hold request details and user records.
+  logger: {
+    level: "warn",
+    log: (level, message) => {
+      if (level === "error") log.error(`[auth] ${message}`);
+      else if (level === "warn") log.warn(`[auth] ${message}`);
+    },
+  },
+  hooks: { after: productEvents },
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          captureServerEvent("user_signed_up", { provider: CONCEPT2_PROVIDER_ID }, user.id);
+        },
+      },
+    },
+  },
   database: drizzleAdapter(db, { provider: "pg", schema }),
   // Better Auth rate-limits /api/auth/* (sign-in, token exchange, client
   // registration...) per client IP, but counts in memory by default. Vercel
