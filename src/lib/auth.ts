@@ -21,6 +21,21 @@ export const auth = betterAuth({
   appName: "ErgStats",
   baseURL: appUrl(),
   database: drizzleAdapter(db, { provider: "pg", schema }),
+  // Better Auth rate-limits /api/auth/* (sign-in, token exchange, client
+  // registration...) per client IP, but counts in memory by default. Vercel
+  // Functions don't share memory and are recycled constantly, so that counter
+  // never trips; the `rateLimit` table makes the limits real.
+  rateLimit: {
+    storage: "database",
+    // Public, static documents that other servers fetch from shared egress
+    // IPs: MCP clients read the discovery metadata, and /mcp verifies access
+    // tokens against its own /jwks. Vercel's DDoS protection covers these.
+    customRules: { "/jwks": false, "/.well-known/**": false },
+  },
+  // Endpoints nothing in the app calls: /token mints session JWTs, and the
+  // other two would hand a browser the raw Concept2 tokens, which only the
+  // server needs (the MCP server reads them through auth.api, which stays open).
+  disabledPaths: ["/token", "/get-access-token", "/refresh-token"],
   session: {
     // Skip the database on most session reads.
     cookieCache: { enabled: true, maxAge: 5 * 60 },
@@ -83,6 +98,10 @@ export const auth = betterAuth({
       allowUnauthenticatedClientRegistration: true,
       // Native clients (Cursor, older Claude Code) register loopback callbacks without application_type.
       clientRegistrationDefaultApplicationType: "infer",
+      // Claude's and ChatGPT's backends exchange and refresh tokens for every
+      // ErgStats user from a handful of egress IPs, so the token endpoint gets
+      // more room than the plugin's 20/min default. The other limits stay.
+      rateLimit: { token: { window: 60, max: 300 } },
     }),
     // Claude and ChatGPT identify themselves with a Client ID Metadata Document URL instead of registering.
     cimd({ fetchClientMetadataResource, metadataProfile: "mcp-2026-07-28" }),

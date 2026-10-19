@@ -22,6 +22,7 @@ ErgStats is its own OAuth 2.1 authorization server, like Sentry's and Linear's M
 - Authorization code with PKCE (S256) only, `iss` on every authorization response (RFC 9207), and access tokens bound to the `/mcp` URL through the `resource` parameter (RFC 8707). Access tokens are JWTs that `/mcp` verifies against `/api/auth/jwks`; refresh tokens rotate.
 - Each tool declares `securitySchemes` (`oauth2`, `logbook:read`) in `_meta` for ChatGPT.
 - Disconnecting an app deletes its consent, which `/mcp` checks on every request, and its tokens.
+- Sign-in, token, consent and client-registration endpoints are rate limited per client IP, with the counters in the `rate_limit` table so the limits hold across Vercel Functions.
 
 `scripts/smoke-oauth.ts` runs the whole flow a client goes through, from the first 401 to a tool call, a refresh and a disconnect.
 
@@ -109,6 +110,13 @@ pnpm db:generate
 ```
 
 Migrations run automatically before each Vercel build (`vercel-build`).
+
+### Security notes
+
+- Every response carries `X-Frame-Options: DENY`, a `Content-Security-Policy` with `frame-ancestors 'none'`, `X-Content-Type-Options`, `Referrer-Policy` and `Permissions-Policy` (see `next.config.ts`). Vercel adds `Strict-Transport-Security`.
+- Concept2 tokens are encrypted at rest and never leave the server: the Better Auth endpoints that would return them to the browser (`/get-access-token`, `/refresh-token`) and the session-JWT endpoint (`/token`) are disabled.
+- API keys are stored as SHA-256 hashes; OAuth access tokens are JWTs checked for issuer, audience (`/mcp`), expiry, scope and a live consent.
+- To report a vulnerability, open a private security advisory on the GitHub repository.
 
 ## Deployment
 
