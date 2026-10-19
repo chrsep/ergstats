@@ -105,6 +105,10 @@ await page.route("http://127.0.0.1:53999/**", (route) => {
   callback = new URL(route.request().url());
   return route.fulfill({ status: 200, body: "You can close this window." });
 });
+async function waitForCallback(): Promise<URL | undefined> {
+  for (let i = 0; i < 100 && !callback; i++) await new Promise((r) => setTimeout(r, 100));
+  return callback;
+}
 
 await page.goto(authorizeUrl.href);
 await page.waitForURL("**/sign-in?**");
@@ -116,12 +120,12 @@ await page.getByText("Connect Smoke OAuth to ErgStats").waitFor();
 await page.getByText("You’ll go back to 127.0.0.1:53999").or(page.getByText("You'll go back to 127.0.0.1:53999")).waitFor();
 if (shots) await page.screenshot({ path: `${shots}/oauth-consent.png` });
 await page.getByRole("button", { name: "Allow" }).click();
-for (let i = 0; i < 100 && !callback; i++) await new Promise((r) => setTimeout(r, 100));
+const redirect = await waitForCallback();
 
-check(callback, "Never reached the client's callback");
-check(callback.searchParams.get("state") === state, "state mismatch");
-check(callback.searchParams.get("iss") === as.issuer, `iss is ${callback.searchParams.get("iss")}, expected ${as.issuer}`);
-const code = callback.searchParams.get("code");
+check(redirect, "Never reached the client's callback");
+check(redirect.searchParams.get("state") === state, "state mismatch");
+check(redirect.searchParams.get("iss") === as.issuer, `iss is ${redirect.searchParams.get("iss")}, expected ${as.issuer}`);
+const code = redirect.searchParams.get("code");
 check(code, "No authorization code");
 
 // 5. Token exchange, bound to the MCP resource.
@@ -200,8 +204,7 @@ callback = undefined;
 await page.goto(authorizeUrl.href);
 await page.waitForURL("**/consent?**");
 await page.getByRole("button", { name: "Allow" }).click();
-for (let i = 0; i < 100 && !callback; i++) await new Promise((r) => setTimeout(r, 100));
-check(callback?.searchParams.get("code"), "Reconnecting didn't return a code");
+check((await waitForCallback())?.searchParams.get("code"), "Reconnecting didn't return a code");
 const stale = await fetch(mcpUrl, {
   method: "POST",
   headers: {
