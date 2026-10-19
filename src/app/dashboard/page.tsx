@@ -4,12 +4,17 @@ import { Suspense } from "react";
 
 import { ApiKeysPanel } from "@/components/dashboard/api-keys-panel";
 import { Concept2AccountCard } from "@/components/dashboard/concept2-account-card";
+import { ConnectInstructions } from "@/components/dashboard/connect-instructions";
+import { ConnectedAppsPanel } from "@/components/dashboard/connected-apps-panel";
 import type { ApiKeyRow } from "@/components/dashboard/types";
 import { SiteHeader } from "@/components/site-header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SignedInUserMenu } from "@/components/user-menu";
 import { mcpUrl } from "@/lib/app-url";
 import { auth } from "@/lib/auth";
+import { clientSetups } from "@/lib/mcp/clients";
+import { listConnectedApps } from "@/lib/oauth/connected-apps";
 import { requireSession } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -21,7 +26,10 @@ async function HeaderUser() {
 
 async function DashboardContent() {
   const { user } = await requireSession();
-  const { apiKeys } = await auth.api.listApiKeys({ headers: await headers() });
+  const [{ apiKeys }, apps] = await Promise.all([
+    auth.api.listApiKeys({ headers: await headers() }),
+    listConnectedApps(user.id),
+  ]);
   const keys: ApiKeyRow[] = apiKeys
     .map((k) => ({
       id: k.id,
@@ -35,6 +43,16 @@ async function DashboardContent() {
 
   return (
     <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Connect your agent</CardTitle>
+          <CardDescription>Add ErgStats to your client, then sign in with Concept2 when it asks. No key to copy.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ConnectInstructions setups={clientSetups(mcpUrl())} />
+        </CardContent>
+      </Card>
+      <ConnectedAppsPanel initialApps={apps} />
       <ApiKeysPanel initialKeys={keys} mcpUrl={mcpUrl()} />
       <Concept2AccountCard name={user.name} email={user.email} image={user.image} />
     </div>
@@ -44,8 +62,9 @@ async function DashboardContent() {
 function DashboardSkeleton() {
   return (
     <div className="flex flex-col gap-6" aria-busy="true" aria-label="Loading">
-      <Skeleton className="h-56 rounded-xl" />
       <Skeleton className="h-72 rounded-xl" />
+      <Skeleton className="h-40 rounded-xl" />
+      <Skeleton className="h-56 rounded-xl" />
       <Skeleton className="h-32 rounded-xl" />
     </div>
   );
@@ -62,7 +81,7 @@ export default function DashboardPage() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6">
         <div className="mb-8 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Create an API key and connect ErgStats to your agent.</p>
+          <p className="text-muted-foreground">Connect ErgStats to your agent and manage what can read your logbook.</p>
         </div>
         <Suspense fallback={<DashboardSkeleton />}>
           <DashboardContent />

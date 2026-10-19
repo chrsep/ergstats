@@ -9,3 +9,8 @@ export function appUrl(): string {
 export function mcpUrl(): string {
   return `${appUrl()}/mcp`;
 }
+
+/** RFC 9728 protected resource metadata for /mcp, which tells MCP clients where to sign in. */
+export function resourceMetadataUrl(): string {
+  return `${appUrl()}/.well-known/oauth-protected-resource/mcp`;
+}

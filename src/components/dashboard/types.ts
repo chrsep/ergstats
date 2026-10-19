@@ -8,3 +8,13 @@ export interface ApiKeyRow {
   lastRequest: Date | string | null;
   expiresAt: Date | string | null;
 }
+
+/** An app (Claude, ChatGPT, Cursor...) the athlete connected by signing in, rather than with an API key. */
+export interface ConnectedAppRow {
+  /** The consent record's id. */
+  id: string;
+  name: string;
+  /** Where the app lives, e.g. "claude.ai", when it says. */
+  host: string | null;
+  connectedAt: Date | string;
+}

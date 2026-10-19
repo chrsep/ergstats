@@ -15,9 +15,10 @@ const ERRORS: Record<string, string> = {
 };
 
 async function SignInError({ searchParams }: { searchParams: PageProps<"/sign-in">["searchParams"] }) {
-  // Already signed in? Skip straight to the dashboard.
-  if (await getSession()) redirect("/dashboard");
-  const { error } = await searchParams;
+  const { error, sig } = await searchParams;
+  // Already signed in? Skip straight to the dashboard, unless an MCP client sent
+  // people here (its signed request carries `sig`) to sign in again.
+  if (!sig && (await getSession())) redirect("/dashboard");
   if (!error || typeof error !== "string") return null;
   return (
     <Alert variant="destructive">

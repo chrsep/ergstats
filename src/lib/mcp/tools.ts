@@ -21,6 +21,7 @@ import {
   workoutDetailSchema,
   workoutListSchema,
 } from "./schemas";
+import { MCP_SCOPE } from "./scopes";
 
 export interface ToolDeps {
   /** Build a Concept2 client for the caller identified by the verified API key. */
@@ -28,6 +29,12 @@ export interface ToolDeps {
   /** Today's date as YYYY-MM-DD. Injected so tests are deterministic. */
   today?: () => string;
 }
+
+/**
+ * Every tool needs a signed-in athlete. ChatGPT reads this to know the tools
+ * need OAuth with this scope (an API key also works for clients that send one).
+ */
+const REQUIRES_SIGN_IN = { securitySchemes: [{ type: "oauth2", scopes: [MCP_SCOPE] }] };
 
 /** Every tool only reads the athlete's own logbook. */
 const READ_ONLY: ToolAnnotations = {
@@ -75,6 +82,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       description: "The athlete's Concept2 Logbook profile: name, username, country and max heart rate.",
       outputSchema: profileSchema,
       annotations: READ_ONLY,
+      _meta: REQUIRES_SIGN_IN,
     },
     async (ctx) => {
       try {
@@ -116,6 +124,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       }),
       outputSchema: workoutListSchema,
       annotations: READ_ONLY,
+      _meta: REQUIRES_SIGN_IN,
     },
     async ({ from, to, machine, limit, page }, ctx) => {
       try {
@@ -148,6 +157,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       }),
       outputSchema: workoutDetailSchema,
       annotations: READ_ONLY,
+      _meta: REQUIRES_SIGN_IN,
     },
     async ({ workout_id }, ctx) => {
       try {
@@ -201,6 +211,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       }),
       outputSchema: strokesSchema,
       annotations: READ_ONLY,
+      _meta: REQUIRES_SIGN_IN,
     },
     async ({ workout_id, segments }, ctx) => {
       try {
@@ -242,6 +253,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       }),
       outputSchema: trainingSummarySchema,
       annotations: READ_ONLY,
+      _meta: REQUIRES_SIGN_IN,
     },
     async ({ from, to, machine, group_by }, ctx) => {
       try {
@@ -282,6 +294,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       }),
       outputSchema: personalBestsSchema,
       annotations: READ_ONLY,
+      _meta: REQUIRES_SIGN_IN,
     },
     async ({ machine, from, to }, ctx) => {
       try {

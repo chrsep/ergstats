@@ -11,7 +11,7 @@ import { mcpUrl } from "@/lib/app-url";
 
 const promises = [
   { icon: ShieldCheckIcon, title: "Read-only", body: "ErgStats can read your workouts. It can’t add, change or delete anything." },
-  { icon: LockKeyholeIcon, title: "Your keys, your call", body: "Concept2 tokens are encrypted at rest. Revoke an API key and access stops instantly." },
+  { icon: LockKeyholeIcon, title: "Your keys, your call", body: "Concept2 tokens are encrypted at rest. Disconnect an app or revoke a key and access stops instantly." },
   { icon: ZapIcon, title: "Built for agents", body: "Compact answers, structured output and clear errors, on the latest MCP spec." },
 ];
 
@@ -35,7 +35,7 @@ export default function HomePage() {
               Ask your AI about every meter you’ve rowed.
             </h1>
             <p className="max-w-xl text-lg text-pretty text-muted-foreground">
-              ErgStats connects your Concept2 Logbook to Claude, Cursor and any MCP client. Splits, PBs and training load,
+              ErgStats connects your Concept2 Logbook to Claude, ChatGPT, Cursor and any MCP client. Splits, PBs and training load,
               in plain language.
             </p>
             <div className="flex flex-wrap gap-3">

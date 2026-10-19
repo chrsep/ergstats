@@ -2,14 +2,10 @@
 
 import { CodeBlock } from "@/components/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { clientSetups } from "@/lib/mcp/clients";
+import type { ClientSetup } from "@/lib/mcp/clients";
 
-/**
- * Per-client setup snippets. Pass `apiKey` right after a key is created so
- * the snippets are ready to paste; otherwise they show a placeholder.
- */
-export function ConnectInstructions({ mcpUrl, apiKey }: { mcpUrl: string; apiKey?: string }) {
-  const setups = clientSetups(mcpUrl, apiKey);
+/** Per-client setup snippets, one tab per client. */
+export function ConnectInstructions({ setups }: { setups: ClientSetup[] }) {
   return (
     <Tabs defaultValue={setups[0].id} className="gap-3">
       <TabsList className="h-auto max-w-full flex-wrap justify-start">

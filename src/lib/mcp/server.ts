@@ -1,12 +1,14 @@
+import { requireMcpAuth } from "@better-auth/mcp";
 import type { AuthInfo } from "@modelcontextprotocol/server";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { account } from "@/db/schema";
-import { appUrl } from "@/lib/app-url";
+import { account, oauthConsent } from "@/db/schema";
+import { appUrl, mcpUrl, resourceMetadataUrl } from "@/lib/app-url";
 import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
-import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
+import { type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck } from "./handler";
+import { MCP_SCOPE } from "./scopes";
 
 class NotConnectedError extends Error {
   name = "NotConnectedError";
@@ -41,9 +43,56 @@ async function verifyKey(key: string): Promise<KeyCheck> {
   };
 }
 
+/**
+ * OAuth access tokens are JWTs signed by our own authorization server and bound
+ * to the /mcp URL. Without a valid one, the 401 points the client at the
+ * protected resource metadata, which starts the sign-in flow.
+ */
+function withOAuth(req: Request, next: AuthorizedHandler): Promise<Response> {
+  return requireMcpAuth(
+    auth,
+    async (request, claims) => {
+      const userId = claims.sub;
+      const clientId = typeof claims.azp === "string" ? claims.azp : undefined;
+      // Disconnecting an app on the dashboard deletes its consent; stop its
+      // still-unexpired access tokens right away instead of when they expire.
+      if (!userId || !clientId || !(await hasConsent(userId, clientId))) {
+        return Response.json(
+          { jsonrpc: "2.0", id: null, error: { code: -32001, message: "This connection was removed. Connect ErgStats again." } },
+          {
+            status: 401,
+            headers: {
+              "cache-control": "no-store",
+              "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl()}", scope="${MCP_SCOPE}", error="invalid_token"`,
+            },
+          },
+        );
+      }
+      return next(request, {
+        token: request.headers.get("authorization")?.split(" ")[1] ?? "",
+        clientId,
+        scopes: typeof claims.scope === "string" ? claims.scope.split(" ") : [],
+        expiresAt: claims.exp,
+        resource: new URL(mcpUrl()),
+        extra: { userId },
+      });
+    },
+    { resource: mcpUrl(), requiredScopes: [MCP_SCOPE] },
+  )(req);
+}
+
+async function hasConsent(userId: string, clientId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: oauthConsent.id })
+    .from(oauthConsent)
+    .where(and(eq(oauthConsent.userId, userId), eq(oauthConsent.clientId, clientId)))
+    .limit(1);
+  return Boolean(row);
+}
+
 async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client> {
   const userId = authInfo?.extra?.userId;
-  if (typeof userId !== "string") throw new NotConnectedError("Missing API key.");
+  if (typeof userId !== "string") throw new NotConnectedError("Missing credentials.");
 
   const [row] = await db
     .select({ id: account.id })
@@ -69,6 +118,8 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
 
 export const mcpHandler = createErgstatsMcpHandler({
   verifyKey,
+  withOAuth,
   getClient,
   dashboardUrl: `${appUrl()}/dashboard`,
+  resourceMetadataUrl: resourceMetadataUrl(),
 });

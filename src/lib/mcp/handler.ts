@@ -7,21 +7,36 @@ export type KeyCheck =
   | { ok: true; authInfo: AuthInfo }
   | { ok: false; status: 401 | 429; message: string; retryAfterSeconds?: number };
 
+/** Runs the MCP server for a caller whose credentials have been verified. */
+export type AuthorizedHandler = (req: Request, authInfo: AuthInfo) => Promise<Response>;
+
 export interface HandlerDeps extends ToolDeps {
   /** Check an API key and resolve it to the user it belongs to. */
   verifyKey: (key: string) => Promise<KeyCheck>;
+  /**
+   * Handle a request that carries no API key: verify its OAuth access token and
+   * call `next`, or answer 401/403 with the challenge that starts sign-in.
+   */
+  withOAuth: (req: Request, next: AuthorizedHandler) => Promise<Response>;
   /** Where people get a key, linked from auth errors. */
   dashboardUrl: string;
+  /** RFC 9728 protected resource metadata, so a client holding a bad key can switch to signing in. */
+  resourceMetadataUrl: string;
 }
 
 export const SERVER_VERSION = "0.1.0";
 
-/** Accept `Authorization: Bearer <key>`, or `X-API-Key: <key>` for clients that only set custom headers. */
+export const API_KEY_PREFIX = "erg_";
+
+/**
+ * An ErgStats API key from `Authorization: Bearer erg_...`, or `X-API-Key` for
+ * clients that only set custom headers. Any other bearer token is an OAuth access token.
+ */
 export function readApiKey(req: Request): string | undefined {
   const header = req.headers.get("authorization");
   if (header) {
     const [scheme, value] = header.split(" ");
-    if (scheme?.toLowerCase() === "bearer" && value) return value.trim();
+    if (scheme?.toLowerCase() === "bearer" && value?.startsWith(API_KEY_PREFIX)) return value.trim();
   }
   return req.headers.get("x-api-key")?.trim() || undefined;
 }
@@ -34,8 +49,9 @@ function jsonError(status: number, message: string, headers: Record<string, stri
 }
 
 /**
- * The /mcp endpoint: API-key auth in front of a stateless Streamable HTTP MCP
- * server (spec 2026-07-28, with the 2025 fallback mcp-handler provides).
+ * The /mcp endpoint: a stateless Streamable HTTP MCP server (spec 2026-07-28,
+ * with the 2025 fallback mcp-handler provides) behind either an OAuth access
+ * token, which connectors like Claude and ChatGPT get by signing in, or an API key.
  */
 export function createErgstatsMcpHandler(deps: HandlerDeps) {
   const mcp = createMcpHandler((server) => registerTools(server, deps), {
@@ -43,21 +59,24 @@ export function createErgstatsMcpHandler(deps: HandlerDeps) {
     instructions: SERVER_INSTRUCTIONS,
   });
 
+  const run: AuthorizedHandler = (req, authInfo) => {
+    req.auth = authInfo;
+    return mcp(req);
+  };
+
   return async function handler(req: Request): Promise<Response> {
     const key = readApiKey(req);
-    if (!key) {
-      return jsonError(401, `Missing API key. Create one at ${deps.dashboardUrl} and send it as "Authorization: Bearer <key>".`, {
-        "www-authenticate": 'Bearer realm="ergstats"',
-      });
-    }
+    if (!key) return deps.withOAuth(req, run);
+
     const check = await deps.verifyKey(key);
     if (!check.ok) {
       const headers: Record<string, string> =
-        check.status === 401 ? { "www-authenticate": 'Bearer realm="ergstats", error="invalid_token"' } : {};
+        check.status === 401
+          ? { "www-authenticate": `Bearer resource_metadata="${deps.resourceMetadataUrl}", error="invalid_token"` }
+          : {};
       if (check.retryAfterSeconds) headers["retry-after"] = String(check.retryAfterSeconds);
       return jsonError(check.status, check.message, headers);
     }
-    req.auth = check.authInfo;
-    return mcp(req);
+    return run(req, check.authInfo);
   };
 }
