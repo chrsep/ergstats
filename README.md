@@ -102,7 +102,7 @@ Migrations run automatically before each Vercel build (`vercel-build`).
 
 ## Deployment
 
-Production runs on Vercel with the Neon integration.
+Production runs on Vercel with the Neon integration. The Neon database is in `aws-ap-southeast-1`, so `vercel.json` pins functions to `sin1` to keep database round trips short.
 
 | Variable | Value |
 | --- | --- |
