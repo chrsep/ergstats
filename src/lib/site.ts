@@ -52,7 +52,7 @@ const API_KEY_FALLBACK =
 const GUIDE_DETAILS: Record<string, GuideDetails> = {
   claude: {
     kind: "Connector",
-    summary: "Customize → Connectors → + Add → Add custom connector. Paste the URL and sign in. Works on every plan, including Free.",
+    summary: "One click with Add to Claude, or Customize → Connectors → + Add → Add custom connector. Works on every plan, including Free.",
     requirements:
       "Works on every Claude plan. Free accounts can add one custom connector. On Team and Enterprise, someone who manages your organization’s connectors adds ErgStats under Organization settings → Connectors first, then you click Connect.",
     menuPath: ["Customize", "Connectors", "+ Add", "Add custom connector"],
@@ -144,7 +144,7 @@ export const FAQS: Faq[] = [
   },
   {
     question: "How do I connect my Concept2 Logbook to Claude?",
-    answer: `In Claude on the web or desktop, open Customize → Connectors, click + Add, then Add custom connector, and paste ${CANONICAL_MCP_URL}. Click Continue, then Add, and sign in with Concept2. Claude can then answer questions about your splits, PBs and training load. It works on every Claude plan, including Free.`,
+    answer: `The quickest way is the Add to Claude button at ${SITE_URL}/connect/claude, which opens Claude’s Add custom connector dialog with ErgStats filled in. Or, in Claude on the web or desktop, open Customize → Connectors, click + Add, then Add custom connector, and paste ${CANONICAL_MCP_URL}. Click Continue, then Add, and sign in with Concept2. Claude can then answer questions about your splits, PBs and training load. It works on every Claude plan, including Free.`,
   },
   {
     question: "Which Claude and ChatGPT plans does ErgStats work with?",
