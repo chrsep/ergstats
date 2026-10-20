@@ -209,10 +209,12 @@ export function analyzeEffort(
   const workSeconds = all.length ? all[all.length - 1].end : 0;
   const q = quality(all, opts.maxHeartRate);
   const usable = Boolean(q?.usable);
+  // Older or sparse results can leave out the workout type, but stroke time still restarts after each rest.
+  const intervals = opts.intervals || all.some((s) => s.afterRest);
 
   const decouplingSkipped = !usable
     ? null
-    : opts.intervals
+    : intervals
       ? "intervals"
       : workSeconds - WARM_UP_SECONDS < MIN_DECOUPLING_SECONDS
         ? "too short"
@@ -221,7 +223,7 @@ export function analyzeEffort(
   const d = usable && !decouplingSkipped ? decoupling(all) : null;
   // Heart rate lags effort, and work/rest swings muddle it, so efficiency is for continuous pieces after the warm-up.
   const steady =
-    usable && !opts.intervals && workSeconds >= MIN_EFFICIENCY_SECONDS
+    usable && !intervals && workSeconds >= MIN_EFFICIENCY_SECONDS
       ? averages(all.filter((s) => s.end > WARM_UP_SECONDS))
       : null;
   return {

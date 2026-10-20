@@ -467,9 +467,11 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       try {
         const client = await deps.getClient(ctx.http?.authInfo);
         // Nothing is logged in the future, and counting empty future weeks would drag the averages down.
-        const end = to && to < today() ? to : today();
+        // Dates are the athlete's local time, which can be a day ahead of the server's UTC date.
+        const latest = isoDaysAgo(today(), -1);
+        const end = !to ? today() : to < latest ? to : latest;
         const start = from ?? isoDaysAgo(end, 83);
-        if (start > end) return ok(`No workouts: ${start} is after today.`);
+        if (start > end) return ok(`No workouts: ${start} is after ${end === to ? end : "today"}.`);
         const { results, truncated } = await client.listAllResults({ from: start, to: end, type: machine });
         const summary = trainingSummary(results, { from: start, to: end, groupBy: group_by, truncated });
         if (summary.sessions === 0) return ok(`No workouts from ${start} to ${end}.`);

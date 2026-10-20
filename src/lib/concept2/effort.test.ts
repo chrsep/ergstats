@@ -73,6 +73,12 @@ describe("analyzeEffort", () => {
     expect(analyzeEffort([...first, ...second], "rower", { maxHeartRate: 190, intervals: true }).quality?.spikes).toBe(0);
   });
 
+  it("treats pieces as intervals when stroke time restarts, even without a workout type", () => {
+    const steady = (s: number) => 140 + (s % 6 < 3 ? 1 : 0);
+    const a = analyzeEffort([...row(20, steady), ...row(20, steady)], "rower", opts);
+    expect(a).toMatchObject({ decoupling: null, decouplingSkipped: "intervals", efficiency: null });
+  });
+
   it("still finds a stuck strap across short intervals", () => {
     // Four 3 min pieces all logged at a flat 150 bpm.
     const pieces = Array.from({ length: 4 }, () => row(3, () => 150)).flat();
