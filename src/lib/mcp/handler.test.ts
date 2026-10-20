@@ -2,24 +2,11 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { afterEach, describe, expect, it } from "vitest";
 
 import { Concept2Client } from "@/lib/concept2/client";
-import { allResults, twoK, twoKStrokes, user } from "@/lib/concept2/__fixtures__/results";
+import { allResults, intervals, twoK, twoKStrokes, user } from "@/lib/concept2/__fixtures__/results";
 import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
 
 const GOOD_KEY = "erg_test_key";
 
-const holidayChallenge = {
-  key: "holiday",
-  name: "Holiday Challenge",
-  season: 2027,
-  start: "2026-11-26",
-  end: "2026-12-24",
-  activity: "Row/Ski/Ride",
-  category: "Individual",
-  description: "Long description",
-  short_description: "Row, ski or ride 100,000 meters.",
-  link: "https://www.concept2.com/holiday-challenge",
-  image: "https://example.com/holiday.png",
-};
 const GOOD_TOKEN = "oauth-access-token";
 const RESOURCE_METADATA = "https://ergstats.test/.well-known/oauth-protected-resource/mcp";
 
@@ -38,15 +25,15 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
         (!from || r.date.slice(0, 10) >= from) &&
         (!to || r.date.slice(0, 10) <= to),
     );
-    return json({ data, meta: { pagination: { total: data.length, count: data.length, per_page: 250, current_page: 1, total_pages: 1 } } });
+    const perPage = Number(url.searchParams.get("number") ?? 50);
+    const page = Number(url.searchParams.get("page") ?? 1);
+    const rows = data.slice((page - 1) * perPage, page * perPage);
+    const pagination = { total: data.length, count: rows.length, per_page: perPage, current_page: page, total_pages: Math.ceil(data.length / perPage) };
+    return json({ data: rows, meta: { pagination } });
   }
-  if (url.pathname === `/api/users/me/results/${twoK.id}`) {
-    // Device details only come back when asked for.
-    return json({ data: url.searchParams.get("include") === "metadata" ? twoK : { ...twoK, metadata: undefined } });
-  }
-  if (url.pathname === "/api/challenges/current") return json({ data: [holidayChallenge] });
-  if (url.pathname === "/api/challenges/season/2027") return json({ data: [holidayChallenge, { ...holidayChallenge, key: "other", name: "Other" }] });
   if (url.pathname === `/api/users/me/results/${twoK.id}/strokes`) return json({ data: twoKStrokes });
+  const result = allResults.find((r) => url.pathname === `/api/users/me/results/${r.id}`);
+  if (result) return json({ data: result });
   return new Response("not found", { status: 404 });
 }
 
@@ -76,6 +63,10 @@ const handler = createErgstatsMcpHandler({
 });
 
 const clients: Client[] = [];
+
+function textOf(result: Awaited<ReturnType<Client["callTool"]>>): string {
+  return (result.content as { type: string; text: string }[]).map((c) => c.text).join("\n");
+}
 
 async function connect(credential = GOOD_KEY) {
   const transport = new StreamableHTTPClientTransport(new URL("https://ergstats.test/mcp"), {
@@ -122,7 +113,7 @@ describe("MCP endpoint", () => {
     expect(res.headers.get("retry-after")).toBe("30");
   });
 
-  it("lists read-only tools with output schemas", async () => {
+  it("lists only read-only training tools, answering in text", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -131,96 +122,104 @@ describe("MCP endpoint", () => {
       "get_training_summary",
       "get_workout",
       "get_workout_strokes",
-      "list_challenges",
       "list_workouts",
     ]);
     for (const tool of tools) {
+      expect(tool.title).toBeTruthy();
       expect(tool.annotations?.readOnlyHint).toBe(true);
-      expect(tool.outputSchema).toBeDefined();
+      // Clients that see structuredContent read it instead of the text (or as well
+      // as it), so results are text only and declare no output schema.
+      expect(tool.outputSchema).toBeUndefined();
       expect(tool.description?.length).toBeGreaterThan(20);
       expect(tool._meta?.securitySchemes).toEqual([{ type: "oauth2", scopes: ["logbook:read"] }]);
     }
     expect(client.getInstructions()).toContain("Concept2 Logbook");
   });
 
-  it("lists workouts as compact lines plus structured data", async () => {
+  it("lists workouts as CSV rows", async () => {
     const client = await connect();
     const result = await client.callTool({ name: "list_workouts", arguments: { machine: "rower", limit: 10 } });
     expect(result.isError).toBeFalsy();
-    const text = (result.content as { type: string; text: string }[])[0].text;
-    expect(text).toContain("2026-10-18 07:30 · RowErg · 2,000m · 7:31.4 · 1:52.9/500m · 30spm · 178bpm · id 1001");
-    expect((result.structuredContent as { total: number }).total).toBe(4);
+    expect(result.structuredContent).toBeUndefined();
+    const text = textOf(result);
+    expect(text).toContain("4 workouts match, showing 1-4, newest first");
+    expect(text).toContain("date,machine,meters,time,pace,spm,hr,rest,id,comment\n");
+    expect(text).toContain("2026-10-18 07:30,RowErg,2000,7:31.4,1:52.9,30,178,,1001,Test day. Felt strong in the last 500.");
+    expect(text).toContain("2026-10-12 07:00,RowErg,2000,7:10.0,1:47.5,,,6:00.0,1004,");
   });
 
-  it("returns the profile with age and weight", async () => {
+  it("tells the agent which page comes next", async () => {
+    const client = await connect();
+    const first = textOf(await client.callTool({ name: "list_workouts", arguments: { limit: 2 } }));
+    expect(first).toMatch(/^5 workouts match, showing 1-2, newest first; next page 2 of 3; pace per 500m, \/1k on the BikeErg\.\n/);
+    const last = textOf(await client.callTool({ name: "list_workouts", arguments: { limit: 2, page: 3 } }));
+    expect(last).toMatch(/^5 workouts match, showing 5-5, newest first; pace/);
+    expect(last.split("\n")).toHaveLength(3);
+  });
+
+  it("returns the training-relevant profile only", async () => {
     const client = await connect();
     const result = await client.callTool({ name: "get_profile", arguments: {} });
-    expect(result.structuredContent).toMatchObject({ dateOfBirth: "1990-11-02", age: 35, weightKg: 82.5, maxHeartRate: 192 });
-    expect((result.content as { text: string }[])[0].text).toContain("Weight: 82.5 kg");
+    expect(textOf(result)).toBe("Chris Example, gender M, age 35, 82.5 kg, max heart rate 192.");
   });
 
-  it("returns workout detail with splits, targets and equipment", async () => {
+  it("returns workout detail with a splits table and targets", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "get_workout", arguments: { workout_id: twoK.id } });
-    const structured = result.structuredContent as { segments: unknown[]; dragFactor: number; device: unknown };
-    expect(structured.segments).toHaveLength(4);
-    expect(structured.dragFactor).toBe(125);
-    expect(structured.device).toMatchObject({ monitor: "5", heartRateMonitor: "BT" });
-    const text = (result.content as { text: string }[])[0].text;
-    expect(text).toContain("Started 2026-10-18 07:22:28, ended 2026-10-18 07:30:00 (Asia/Jakarta)");
-    expect(text).toContain("Targets: 1:53.0/500m, 30spm");
-    expect(text).toContain("Logged from ErgData iOS, verified, ranked, heavyweight, privacy everyone");
-    expect(text).toContain("Equipment: PM5, firmware 211, Model D/E, RowErg or Dynamic, serial 430123456");
-    expect(text).toContain("1. 500m 1:55.0 1:55.0/500m 230W 31spm 34cal");
-    expect(text).toContain("HR avg 168/min 120/max 176/end 175");
+    const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: twoK.id } }));
+    expect(text).toContain("RowErg FixedDistanceSplits on 2026-10-18 07:30:00, started 07:22:28, Asia/Jakarta. id 1001.");
+    expect(text).toContain("2000m in 7:31.4, 1:52.9/500m, 244W, 30spm, 226 strokes, 140 cal, drag factor 125.");
+    expect(text).toContain("Heart rate: avg 178, min 120, max 190, end 189.");
+    expect(text).toContain("Targets: 1:53.0/500m, 30spm.");
+    expect(text).toContain("4 splits (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max\n1,500,1:55.0,1:55.0,230,31,168,176\n");
+    // Equipment and logging details are not training data.
+    expect(text).not.toMatch(/serial|firmware|privacy|ErgData/);
   });
 
-  it("summarizes stroke data", async () => {
+  it("shows rest and heart rate after rest for intervals", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: twoK.id, segments: 4 } });
-    expect((result.structuredContent as { buckets: unknown[] }).buckets).toHaveLength(4);
+    const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: intervals.id } }));
+    expect(text).toContain(
+      "4 distance intervals (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,rest,rest_m,hr_end_of_rest\n1,500,1:47.5,1:47.5,282,32,170,178,2:00.0,,120\n",
+    );
+  });
+
+  it("summarizes stroke data into segments", async () => {
+    const client = await connect();
+    const text = textOf(
+      await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: twoK.id, segments: 4 } }),
+    );
+    expect(text).toContain("200 strokes in 4 equal-distance segments; pace per 500m.\nto_meters,to_time,pace,watts,spm,m_per_stroke,hr\n500,1:52.9,1:52.9,243,32,10,155\n");
   });
 
   it("pages through raw strokes", async () => {
     const client = await connect();
-    const result = await client.callTool({
-      name: "get_workout_strokes",
-      arguments: { workout_id: twoK.id, format: "strokes", offset: 190, limit: 5 },
-    });
-    const structured = result.structuredContent as { strokes: { n: number }[]; nextOffset: number | null };
-    expect(structured.strokes.map((s) => s.n)).toEqual([191, 192, 193, 194, 195]);
-    expect(structured.nextOffset).toBe(195);
-    const last = await client.callTool({
-      name: "get_workout_strokes",
-      arguments: { workout_id: twoK.id, format: "strokes", offset: 195 },
-    });
-    expect((last.structuredContent as { nextOffset: number | null }).nextOffset).toBeNull();
-    expect((last.content as { text: string }[])[0].text).toContain("Strokes 196-200 of 200");
-  });
-
-  it("lists Concept2 challenges", async () => {
-    const client = await connect();
-    const current = await client.callTool({ name: "list_challenges", arguments: {} });
-    expect((current.content as { text: string }[])[0].text).toContain(
-      "Holiday Challenge (2026-11-26 to 2026-12-24) · Row/Ski/Ride, Individual · Row, ski or ride 100,000 meters.",
+    const page = textOf(
+      await client.callTool({
+        name: "get_workout_strokes",
+        arguments: { workout_id: twoK.id, format: "strokes", offset: 190, limit: 5 },
+      }),
     );
-    // 2026-10-19 falls in the season that ends in 2027.
-    const season = await client.callTool({ name: "list_challenges", arguments: { when: "season" } });
-    expect((season.structuredContent as { challenges: unknown[] }).challenges).toHaveLength(2);
+    expect(page).toContain("Strokes 191-195 of 200; next offset 195; pace per 500m.");
+    expect(page.split("\n").slice(-5).map((row) => row.split(",")[0])).toEqual(["191", "192", "193", "194", "195"]);
+    const last = textOf(
+      await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: twoK.id, format: "strokes", offset: 195 } }),
+    );
+    expect(last).toContain("Strokes 196-200 of 200; pace per 500m.");
   });
 
   it("summarizes training over the default 12 weeks", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "get_training_summary", arguments: {} });
-    const structured = result.structuredContent as { from: string; to: string; sessions: number };
-    expect(structured).toMatchObject({ from: "2026-07-28", to: "2026-10-19", sessions: 5 });
+    const text = textOf(await client.callTool({ name: "get_training_summary", arguments: {} }));
+    expect(text).toContain("2026-07-28 to 2026-10-19: 5 sessions, 22900m, 1:33:23.");
+    expect(text).toContain("SkiErg: 1 session, 6900m, 30:00, avg 2:10.4/500m.");
+    expect(text).toContain("week,sessions,meters,time\n2026-08-31,1,2000,7:42\n2026-10-12,4,20900,1:25:41");
   });
 
   it("finds personal bests", async () => {
     const client = await connect();
-    const result = await client.callTool({ name: "get_personal_bests", arguments: {} });
-    const text = (result.content as { text: string }[])[0].text;
-    expect(text).toContain("RowErg 2k: 7:31.4");
+    const text = textOf(await client.callTool({ name: "get_personal_bests", arguments: {} }));
+    expect(text).toContain("RowErg 2k: 7:31.4, 1:52.9/500m, 2026-10-18, id 1001");
+    expect(text).toContain("SkiErg 30 min: 6900m, 2:10.4/500m, 2026-10-16, id 1003");
   });
 
   it("turns Concept2 errors into tool errors the model can read", async () => {

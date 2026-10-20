@@ -31,7 +31,7 @@ export const TOOLS: ToolInfo[] = [
   {
     name: "get_workout",
     icon: TimerIcon,
-    summary: "Splits or intervals, targets, heart rate and the monitor you used.",
+    summary: "Splits or intervals, targets, heart rate and rest.",
     prompt: "Break down Tuesday’s 4×500m intervals.",
   },
   {
