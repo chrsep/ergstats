@@ -28,19 +28,16 @@ ErgStats is its own OAuth 2.1 authorization server, like Sentry's and Linear's M
 
 ## MCP tools
 
-All tools are read-only (`readOnlyHint`), return a compact text answer for the model plus `structuredContent` matching a declared `outputSchema`, and turn Concept2 failures into readable tool errors.
+All tools are read-only (`readOnlyHint`) and cover the athlete's training only. Each returns one compact text result: a few lines of prose, with lists, splits, segments and strokes as CSV under one header row. There is no `structuredContent` or `outputSchema`, because Claude Code and Codex hand the model only `structuredContent` when a result has it and ChatGPT hands it both, so a second copy only costs tokens. Concept2 failures come back as readable tool errors. `src/lib/mcp/token-budget.test.ts` holds each tool to a size budget on a realistic year of training.
 
 | Tool | What it returns |
 | --- | --- |
-| `get_training_summary` | Sessions, meters and time for a date range, per machine (with average pace) and per week or month. Defaults to the last 12 weeks. |
+| `get_training_summary` | Sessions, meters and time for a date range, per machine (with average pace) and per week or month, plus the longest workout. Defaults to the last 12 weeks. |
 | `get_personal_bests` | Best result per standard event (100m to marathon, 1/4/30/60 min) and machine. |
-| `list_workouts` | Workouts newest first, filterable by date and machine, paginated, with comments, rest, drag factor, source and verified/ranked flags. |
-| `get_workout` | Everything Concept2 stores for one result: start/end time, splits or intervals (pace, watts, rate, calories, watt-minutes, full heart rate incl. rest and recovery, rest), monitor targets, and the PM, firmware, app and HR strap it was logged with. |
-| `get_workout_strokes` | Stroke data averaged into equal-distance segments, or every stroke (`format: "strokes"`, paged). |
-| `get_profile` | Logbook profile: gender, date of birth and age, weight, max heart rate. |
-| `list_challenges` | Concept2's current, upcoming, recent and seasonal challenges and events. |
-
-Every read-only Logbook endpoint is covered except the per-result CSV/FIT/TCX exports, which hold the same stroke data `get_workout_strokes` returns.
+| `list_workouts` | Workouts newest first, filterable by date and machine, 20 per page (up to 100): date, machine, meters, time, pace, stroke rate, heart rate, rest, id and comment. |
+| `get_workout` | One result: start and end time, totals (watts, calories, strokes, drag factor), heart rate, rest, monitor targets, comments, and its splits or intervals with pace, watts, rate, heart rate and rest. |
+| `get_workout_strokes` | Stroke data averaged into equal-distance segments, or every stroke (`format: "strokes"`, 100 per page, up to 250). |
+| `get_profile` | Name, gender, age, weight and max heart rate. |
 
 The server runs on [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) 2.3 and the MCP TypeScript SDK v2: MCP spec **2026-07-28** (stateless Streamable HTTP), with the 2025-era fallback for older clients.
 

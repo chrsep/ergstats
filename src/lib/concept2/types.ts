@@ -148,19 +148,3 @@ export interface Concept2List<T> {
   data: T[];
   meta?: { pagination?: Concept2Pagination };
 }
-
-/** A Concept2 challenge or event (public, not tied to the athlete). */
-export interface Concept2Challenge {
-  key?: string;
-  name: string;
-  season?: number | string;
-  year?: number | string;
-  start: string;
-  end: string;
-  activity?: string;
-  category?: string;
-  description?: string;
-  short_description?: string;
-  link?: string;
-  image?: string;
-}

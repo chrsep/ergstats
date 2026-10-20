@@ -10,7 +10,7 @@ import {
   watts,
   weekStart,
 } from "./format";
-import type { Concept2Metadata, Concept2Result, Concept2Split, Concept2Stroke, Concept2Targets, MachineType } from "./types";
+import type { Concept2Result, Concept2Split, Concept2Stroke, Concept2Targets, MachineType } from "./types";
 
 /** Concept2 sends 0 for a heart rate it didn't record; treat that as missing. */
 function reading(value: number | null | undefined): number | null {
@@ -180,42 +180,6 @@ function targetsDetail(t: Concept2Targets | null | undefined, type: MachineType)
   return Object.values(detail).some((v) => v !== null) ? detail : null;
 }
 
-const ERG_MODELS: Record<number, string> = { 0: "Model D/E, RowErg or Dynamic", 1: "Model C/B", 2: "Model A" };
-
-export interface DeviceDetail {
-  monitor: string | null;
-  firmware: string | null;
-  serialNumber: string | null;
-  ergModel: string | null;
-  app: string | null;
-  device: string | null;
-  deviceOs: string | null;
-  heartRateMonitor: string | null;
-  other: string | null;
-}
-
-function text(value: string | number | null | undefined): string | null {
-  return value === null || value === undefined || value === "" ? null : String(value);
-}
-
-function deviceDetail(m: Concept2Metadata | null | undefined, type: MachineType): DeviceDetail | null {
-  if (!m) return null;
-  const rowerModel = type === "rower" || type === "dynamic" || type === "slides";
-  const detail = {
-    monitor: text(m.pm_version),
-    firmware: text(m.firmware_version),
-    serialNumber: text(m.serial_number),
-    ergModel:
-      rowerModel && typeof m.erg_model_type === "number" ? (ERG_MODELS[m.erg_model_type] ?? null) : null,
-    app: text(m.client_version),
-    device: text(m.device),
-    deviceOs: [m.device_os, m.device_os_version].filter(Boolean).join(" ") || null,
-    heartRateMonitor: text(m.hr_type),
-    other: text(m.other),
-  };
-  return Object.values(detail).some((v) => v !== null) ? detail : null;
-}
-
 const LOCAL_TIMESTAMP = /^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})$/;
 
 /** Milliseconds for a "YYYY-MM-DD HH:MM:SS" timestamp read as UTC. */
@@ -273,7 +237,6 @@ export interface WorkoutDetail extends WorkoutSummary {
   wattMinutes: number | null;
   heartRate: HeartRateDetail | null;
   targets: TargetsDetail | null;
-  device: DeviceDetail | null;
   segmentKind: "intervals" | "splits" | null;
   segments: SplitDetail[];
 }
@@ -293,7 +256,6 @@ export function workoutDetail(r: Concept2Result): WorkoutDetail {
     wattMinutes: r.wattminutes_total ?? null,
     heartRate: heartRateDetail(r.heart_rate),
     targets: targetsDetail(r.workout?.targets, r.type),
-    device: deviceDetail(r.metadata, r.type),
     segmentKind,
     segments,
   };
