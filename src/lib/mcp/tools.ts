@@ -12,7 +12,14 @@ import {
   type WorkoutSummary,
 } from "@/lib/concept2/analysis";
 import { Concept2Client, Concept2Error } from "@/lib/concept2/client";
-import { machineLabel, paceUnit } from "@/lib/concept2/format";
+import {
+  analyzeEffort,
+  type EffortAnalysis,
+  UNEVEN_VARIATION,
+  WARM_UP_SECONDS,
+  type ZoneTime,
+} from "@/lib/concept2/effort";
+import { formatTenths, isInterval, machineLabel, paceUnit } from "@/lib/concept2/format";
 import type { MachineType } from "@/lib/concept2/types";
 import { dateSchema, machineSchema } from "./schemas";
 import { MCP_SCOPE } from "./scopes";
@@ -49,9 +56,9 @@ export const STROKE_LIMIT = { default: 100, max: 250 };
 export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Concept2 Logbook: rowing, SkiErg and BikeErg workouts, splits, intervals, heart rate, stroke data and personal bests. Read-only.
 
 - Volume, consistency or trends: get_training_summary. PRs: get_personal_bests.
-- Find sessions with list_workouts, then get_workout for splits or intervals and get_workout_strokes for pacing within a piece.
+- Find sessions with list_workouts, then get_workout for splits or intervals and get_workout_strokes for pacing and heart rate within a piece (zones, decoupling, efficiency, strap checks).
 - get_profile has age, weight and max heart rate for zones and watts per kg.
-- Tables are CSV with a header row; empty cells are unrecorded. Times are h:mm:ss.t. Pace is per 500m, or per 1000m on the BikeErg (marked /1k); lower is faster. Dates are the athlete's local time.`;
+- Tables are CSV with a header row; empty cells are unrecorded. Times are h:mm:ss.t. Pace is per 500m, or per 1000m on the BikeErg (marked /1k); lower is faster. Times are the athlete's local time; workouts are listed by start time.`;
 
 const PACE_NOTE = "pace per 500m, /1k on the BikeErg";
 
@@ -94,7 +101,7 @@ function isoDaysAgo(today: string, days: number): string {
 /** One sentence naming a workout, to head results about it. */
 function workoutHeading(w: WorkoutSummary): string {
   return join([
-    `${machineLabel(w.machine)} ${w.date.slice(0, 16)}`,
+    w.startedAt ? `${machineLabel(w.machine)} started ${w.startedAt.slice(0, 16)}` : `${machineLabel(w.machine)} ${w.date.slice(0, 16)}`,
     `${w.distanceMeters}m in ${w.time}`,
     w.pace,
     w.strokeRate && `${w.strokeRate}spm`,
@@ -102,6 +109,59 @@ function workoutHeading(w: WorkoutSummary): string {
     w.restTime && `rest ${w.restTime}`,
     `id ${w.id}`,
   ]);
+}
+
+/** Whole minutes and seconds, like "24:49". */
+const duration = (seconds: number) => wholeSeconds(formatTenths(seconds * 10));
+const percent = (share: number) => `${Math.round(share * 100)}%`;
+/** "<60%", "60-70%" or "90%+" of max heart rate. */
+const zoneLabel = (z: ZoneTime) =>
+  z.ceiling === null
+    ? `${percent(z.floor)}+`
+    : z.floor === 0
+      ? `<${percent(z.ceiling)}`
+      : `${Math.round(z.floor * 100)}-${percent(z.ceiling)}`;
+
+/** A few lines on heart rate from the stroke data, so agents don't have to read every stroke. */
+/** `maxHeartRate` is undefined when the profile couldn't be read, null when it has none. */
+function effortLines(a: EffortAnalysis, maxHeartRate: number | null | undefined): string[] {
+  const q = a.quality;
+  if (!q) return ["No heart rate recorded."];
+  const lines = [
+    q.stuck &&
+      `Heart rate stuck at ${q.stuck.bpm}bpm for ${duration(q.stuck.seconds)}: the strap likely lost contact, so heart rate figures are left out.`,
+    !q.stuck &&
+      !q.usable &&
+      `Heart rate recorded for only ${percent(q.coverage)} of the piece, so heart rate figures are left out.`,
+    q.usable && q.spikes > 0 && `${q.spikes} heart rate jumps of 20+ bpm between strokes, likely strap glitches.`,
+    q.usable && q.aboveMax && `Peak ${q.aboveMax}bpm is above the profile's max heart rate of ${maxHeartRate}.`,
+  ];
+  if (q.usable) {
+    lines.push(
+      a.zones
+        ? `Time by heart rate, % of max ${maxHeartRate}: ${join(
+            a.zones
+              .filter((z) => z.seconds > 0)
+              .map((z) => `${zoneLabel(z)} ${duration(z.seconds)}`),
+          )}.`
+        : maxHeartRate === undefined
+          ? "Couldn't read the profile's max heart rate, so no zones."
+          : "No max heart rate in the Concept2 profile, so no zones.",
+    );
+  }
+  const d = a.decoupling;
+  if (d) {
+    lines.push(
+      `Aerobic decoupling ${d.percent.toFixed(1)}% (watts per beat, 1st vs 2nd half after a ${WARM_UP_SECONDS / 60} min warm-up; under 5% is steady): ${Math.round(d.first.watts)}W at ${Math.round(d.first.hr)}bpm, then ${Math.round(d.second.watts)}W at ${Math.round(d.second.hr)}bpm; watts varied ${percent(d.variation)} minute to minute${d.variation > UNEVEN_VARIATION ? ", too uneven to read much into it" : ""}.`,
+    );
+  } else if (a.decouplingSkipped === "too short" && a.workSeconds >= 900) {
+    // Only worth saying for pieces long enough that someone might expect it.
+    lines.push(`No decoupling: it needs 20+ min of steady work after the warm-up.`);
+  }
+  if (a.efficiency !== null) {
+    lines.push(`Efficiency ${a.efficiency.toFixed(2)} W/bpm after the warm-up (compare similar sessions).`);
+  }
+  return lines.filter((l): l is string => Boolean(l));
 }
 
 function segmentTable(segments: SplitDetail[], intervals: boolean): string {
@@ -188,7 +248,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     "list_workouts",
     {
       title: "List workouts",
-      description: `Find workouts by date range and machine, newest first, ${LIST_LIMIT.default} per page. One CSV row each: date, machine, meters, time, pace, stroke rate, average heart rate, rest, id and the athlete's comment. Pass the id to get_workout for splits.`,
+      description: `Find workouts by date range and machine, newest first, ${LIST_LIMIT.default} per page. One CSV row each: start time, machine, meters, time, pace, stroke rate, average heart rate, rest, id and the athlete's comment. Pass the id to get_workout for splits.`,
       inputSchema: z.object({
         from: dateSchema.optional().describe("On or after, YYYY-MM-DD."),
         to: dateSchema.optional().describe("On or before, YYYY-MM-DD."),
@@ -217,9 +277,9 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           "; ",
         );
         const table = csv(
-          ["date", "machine", "meters", "time", "pace", "spm", "hr", "rest", "id", "comment"],
+          ["start", "machine", "meters", "time", "pace", "spm", "hr", "rest", "id", "comment"],
           workouts.map((w) => [
-            w.date.slice(0, 16),
+            (w.startedAt ?? w.date).slice(0, 16),
             machineLabel(w.machine),
             w.distanceMeters,
             w.time,
@@ -306,7 +366,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     "get_workout_strokes",
     {
       title: "Get stroke data",
-      description: `Pacing within one workout from its stroke data, as CSV. By default averaged into equal-distance segments (pace, watts, stroke rate, meters per stroke, heart rate). format "strokes" gives every stroke instead, ${STROKE_LIMIT.default} per page from offset; prefer segments unless single strokes matter.`,
+      description: `Pacing and heart rate within one workout from its stroke data. By default: time in heart rate zones, aerobic decoupling, efficiency (watts per beat) and heart rate strap checks, then a CSV averaged into equal-distance segments (pace, watts, stroke rate, meters per stroke, heart rate). format "strokes" gives every stroke instead, ${STROKE_LIMIT.default} per page from offset; prefer the default unless single strokes matter.`,
       inputSchema: z.object({
         workout_id: z.number().int().min(1).max(1e12).describe("From list_workouts."),
         format: z.enum(["segments", "strokes"]).default("segments"),
@@ -326,6 +386,14 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     async ({ workout_id, format, segments, offset, limit }, ctx) => {
       try {
         const client = await deps.getClient(ctx.http?.authInfo);
+        // Max heart rate is only for zones, so the summary still runs if the profile can't be read.
+        const maxHeartRate =
+          format === "segments"
+            ? client
+                .getMe()
+                .then((me) => me.max_heart_rate || null)
+                .catch(() => undefined)
+            : null;
         const [result, strokes] = await Promise.all([client.getResult(workout_id), client.getStrokes(workout_id)]);
         if (strokes.length === 0) {
           return { content: [{ type: "text", text: `Workout ${workout_id} has no stroke data.` }], isError: true };
@@ -359,12 +427,31 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           );
           return ok(`${heading}.\n${header}.\n${table}`);
         }
+        const maxHr = await maxHeartRate;
+        const effort = analyzeEffort(strokes, result.type, { maxHeartRate: maxHr ?? null, intervals: isInterval(result) });
         const buckets = bucketStrokes(strokes, result.type, segments);
+        // Readings the strap check rejected stay out of the table too.
+        const hrOk = effort.quality?.usable !== false;
         const table = csv(
           ["to_meters", "to_time", "pace", "watts", "spm", "m_per_stroke", "hr"],
-          buckets.map((b) => [b.toMeters, b.toTime, shortPace(b.pace), b.watts, b.strokeRate, b.metersPerStroke, b.heartRateAvg]),
+          buckets.map((b) => [
+            b.toMeters,
+            b.toTime,
+            shortPace(b.pace),
+            b.watts,
+            b.strokeRate,
+            b.metersPerStroke,
+            hrOk ? b.heartRateAvg : null,
+          ]),
         );
-        return ok(`${heading}.\n${strokes.length} strokes in ${buckets.length} equal-distance segments; ${paceNote(result.type)}.\n${table}`);
+        return ok(
+          [
+            `${heading}.`,
+            ...effortLines(effort, maxHr),
+            `${strokes.length} strokes in ${buckets.length} equal-distance segments; ${paceNote(result.type)}.`,
+            table,
+          ].join("\n"),
+        );
       } catch (error) {
         return fail(error);
       }
@@ -376,7 +463,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     {
       title: "Get training summary",
       description:
-        "Training volume for a date range (default the last 12 weeks): sessions, meters and time in total, per machine with average pace, and per week or month as CSV, plus the longest workout.",
+        "Training volume and consistency for a date range (default the last 12 weeks): sessions, meters and time in total and per machine with average pace, sessions and minutes per week, weeks with 2+ sessions, the longest gap between workouts, and a CSV per week or month including empty ones.",
       inputSchema: z.object({
         from: dateSchema.optional().describe("YYYY-MM-DD; default 12 weeks ago."),
         to: dateSchema.optional().describe("YYYY-MM-DD; default today."),
@@ -389,19 +476,29 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     async ({ from, to, machine, group_by }, ctx) => {
       try {
         const client = await deps.getClient(ctx.http?.authInfo);
-        const end = to ?? today();
+        // Nothing is logged in the future, and counting empty future weeks would drag the averages down.
+        // Dates are the athlete's local time, which can be a day ahead of the server's UTC date.
+        const latest = isoDaysAgo(today(), -1);
+        const end = !to ? today() : to < latest ? to : latest;
         const start = from ?? isoDaysAgo(end, 83);
+        if (start > end) return ok(`No workouts: ${start} is after ${end === to ? end : "today"}.`);
         const { results, truncated } = await client.listAllResults({ from: start, to: end, type: machine });
         const summary = trainingSummary(results, { from: start, to: end, groupBy: group_by, truncated });
         if (summary.sessions === 0) return ok(`No workouts from ${start} to ${end}.`);
+        const gap = summary.longestGap;
         const lines = [
           `${start} to ${end}: ${plural(summary.sessions, "session")}, ${summary.meters}m, ${wholeSeconds(summary.time)}.`,
           ...summary.byMachine.map(
             (m) =>
               `${machineLabel(m.machine)}: ${join([plural(m.sessions, "session"), `${m.meters}m`, wholeSeconds(m.time), m.averagePace && `avg ${m.averagePace}`])}.`,
           ),
+          summary.weekly &&
+            `Per week: ${summary.weekly.sessionsPerWeek.toFixed(1)} sessions and ${Math.round(summary.weekly.secondsPerWeek / 60)} min of work on average; ${summary.weekly.weeksWithTwoPlus} of ${summary.weekly.weeks} weeks had 2+ sessions.`,
+          gap && gap.days > 1 && `Longest gap between workouts: ${plural(gap.days, "day")}, ${gap.from} to ${gap.to}.`,
+          summary.daysSinceLast &&
+            `Last workout ${plural(summary.daysSinceLast, "day")} ${end === today() ? "ago" : `before ${end}`}.`,
           summary.longestWorkout && `Longest: ${workoutHeading(summary.longestWorkout)}.`,
-          `By ${group_by === "week" ? "week (starting Monday)" : "month"}:`,
+          `By ${group_by === "week" ? "week (starting Monday)" : "month"}${summary.emptyPeriodsListed ? "" : `, only ${group_by}s with workouts`}:`,
           csv(
             [group_by, "sessions", "meters", "time"],
             summary.byPeriod.map((p) => [p.period, p.sessions, p.meters, wholeSeconds(p.time)]),
