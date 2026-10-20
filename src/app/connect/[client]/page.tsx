@@ -125,7 +125,7 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
                         <ol aria-label="Menu path" className="flex flex-wrap items-center gap-2">
                           {details.menuPath.map((item, j, path) => (
                             <li key={item} className="flex items-center gap-2">
-                              <span className="inline-flex min-h-8 items-center rounded-lg border border-b-2 bg-card px-2.5 text-sm font-medium">{item}</span>
+                              <span className="inline-flex min-h-8 items-center rounded-lg border bg-card px-2.5 text-sm font-medium shadow-[0_1px_0_0_var(--color-border)]">{item}</span>
                               {j < path.length - 1 && <ChevronRightIcon aria-hidden="true" className="size-4 text-muted-foreground" />}
                             </li>
                           ))}
