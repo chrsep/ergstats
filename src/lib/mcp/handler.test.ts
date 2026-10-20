@@ -42,6 +42,10 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
 const feedback: { userId: unknown; report: AgentFeedback }[] = [];
 let feedbackFull = false;
 
+/** Whether the OAuth caller has used up their minute. */
+let quotaSpent = false;
+const quotaChecks: unknown[] = [];
+
 const handler = createErgstatsMcpHandler({
   dashboardUrl: "https://ergstats.com/dashboard",
   resourceMetadataUrl: RESOURCE_METADATA,
@@ -60,6 +64,10 @@ const handler = createErgstatsMcpHandler({
       status: 401,
       headers: { "www-authenticate": `Bearer resource_metadata="${RESOURCE_METADATA}", scope="logbook:read"` },
     });
+  },
+  async consumeQuota(authInfo) {
+    quotaChecks.push(authInfo.extra?.userId);
+    return quotaSpent ? { ok: false, retryAfterSeconds: 45 } : { ok: true };
   },
   async getClient(authInfo) {
     expect(authInfo?.extra?.userId).toBe("u1");
@@ -121,6 +129,33 @@ describe("MCP endpoint", () => {
     );
     expect(res.status).toBe(429);
     expect(res.headers.get("retry-after")).toBe("30");
+  });
+
+  it("counts each OAuth request against the user's budget and answers 429 once it is spent", async () => {
+    quotaChecks.length = 0;
+    const client = await connect(GOOD_TOKEN);
+    await client.callTool({ name: "get_profile", arguments: {} });
+    expect(quotaChecks.length).toBeGreaterThan(0);
+    expect(quotaChecks.every((userId) => userId === "u1")).toBe(true);
+
+    quotaSpent = true;
+    try {
+      const res = await handler(
+        new Request("https://ergstats.test/mcp", { method: "POST", body: "{}", headers: { authorization: `Bearer ${GOOD_TOKEN}` } }),
+      );
+      expect(res.status).toBe(429);
+      expect(res.headers.get("retry-after")).toBe("45");
+      expect((await res.json()).error.message).toContain("Too many requests");
+      // API keys have their own budget: the user's OAuth budget does not apply to them.
+      quotaChecks.length = 0;
+      const keyRes = await handler(
+        new Request("https://ergstats.test/mcp", { method: "POST", body: "{}", headers: { authorization: "Bearer erg_nope" } }),
+      );
+      expect(keyRes.status).toBe(401);
+      expect(quotaChecks).toHaveLength(0);
+    } finally {
+      quotaSpent = false;
+    }
   });
 
   it("lists read-only training tools and send_feedback, answering in text", async () => {

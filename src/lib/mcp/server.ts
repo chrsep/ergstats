@@ -9,9 +9,10 @@ import { appUrl, mcpUrl, resourceMetadataUrl } from "@/lib/app-url";
 import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
 import { createMcpTelemetry } from "@/lib/observability/mcp";
-import { API_KEY_PREFIX, type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck } from "./handler";
+import { API_KEY_PREFIX, type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck, type QuotaCheck } from "./handler";
 import { MCP_SCOPE } from "./scopes";
 import type { AgentFeedback } from "./tools";
+import { consumeUserQuota } from "./user-quota";
 
 class NotConnectedError extends Error {
   name = "NotConnectedError";
@@ -134,6 +135,13 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
   return new Concept2Client({ accessToken, fetch: telemetry?.fetch });
 }
 
+/** OAuth callers get the same budget as an API key: 120 requests a minute, per user. */
+function consumeQuota(authInfo: AuthInfo): Promise<QuotaCheck> {
+  const userId = authInfo.extra?.userId;
+  if (typeof userId !== "string") throw new Error("Missing credentials.");
+  return consumeUserQuota(userId);
+}
+
 /** Reports one account may send a day, so a looping agent can't flood the table. */
 const FEEDBACK_PER_DAY = 20;
 
@@ -173,6 +181,7 @@ async function saveFeedback(authInfo: AuthInfo | undefined, feedback: AgentFeedb
 export const mcpHandler = createErgstatsMcpHandler({
   verifyKey,
   withOAuth,
+  consumeQuota,
   getClient,
   saveFeedback,
   dashboardUrl: `${appUrl()}/dashboard`,

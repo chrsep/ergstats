@@ -29,6 +29,13 @@
       "when": 1792488837402,
       "tag": "0003_agent_feedback",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792527483301,
+      "tag": "0004_mcp_request_quota",
+      "breakpoints": true
     }
   ]
 }

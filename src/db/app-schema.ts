@@ -1,4 +1,4 @@
-import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 import { user } from "./schema";
 
@@ -30,3 +30,19 @@ export const agentFeedback = pgTable(
   },
   (table) => [index("agent_feedback_userId_createdAt_idx").on(table.userId, table.createdAt)],
 );
+
+/**
+ * The request budget of a user calling /mcp with an OAuth token: how many
+ * requests they have made in the current window and when it started. API
+ * keys carry their own budget in Better Auth's apikey table. One row per
+ * user, deleted with the account.
+ */
+export const mcpRequestQuota = pgTable("mcp_request_quota", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  /** Start of the current window, in milliseconds since the epoch. */
+  windowStart: bigint("window_start", { mode: "number" }).notNull(),
+  /** Requests made in the window, counting the ones that were refused. */
+  count: integer("count").notNull(),
+});
