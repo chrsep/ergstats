@@ -7,7 +7,7 @@
 export const POSTHOG_TOKEN = process.env.NEXT_PUBLIC_POSTHOG_TOKEN || undefined;
 
 /**
- * The token for server-side events, traces and logs. Those also need
+ * The token for server-side events and exceptions. Those also need
  * BETTER_AUTH_SECRET, which keys the pseudonymous ids, so without it nothing is sent.
  */
 export function serverToken(): string | undefined {

@@ -78,12 +78,6 @@ export function classifyToolError(error: unknown): ToolErrorCategory {
   return "internal";
 }
 
-/** The product token of a User-Agent (`claude-code`, `openai-mcp`, `node`...), without versions or platform details. */
-export function userAgentProduct(userAgent: string | null | undefined): string | undefined {
-  const product = userAgent?.trim().split(/[\s/;(]/, 1)[0];
-  return product && /^[\w.-]{1,40}$/.test(product) ? product.toLowerCase() : undefined;
-}
-
 /** Facts about one /mcp request, collected while it runs. */
 export interface McpRequestStats {
   /** The caller's ErgStats user id. Never sent; events carry its pseudonym. */

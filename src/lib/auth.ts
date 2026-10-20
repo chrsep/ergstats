@@ -14,7 +14,6 @@ import { purgeUserData } from "@/lib/account-deletion";
 import { appUrl, mcpUrl } from "@/lib/app-url";
 import { CONCEPT2_SCOPES, concept2BaseUrl, Concept2Client } from "@/lib/concept2/client";
 import { MCP_SCOPE } from "@/lib/mcp/scopes";
-import { log } from "@/lib/observability/logger";
 import { captureServerEvent } from "@/lib/observability/server";
 
 export const CONCEPT2_PROVIDER_ID = "concept2";
@@ -55,13 +54,6 @@ const productEvents = createAuthMiddleware(async (ctx) => {
         userId,
       );
       break;
-    case "/oauth2/token":
-      // The code exchange is the moment a client finishes connecting; refreshes are routine.
-      if (body.grant_type === "authorization_code") captureServerEvent("mcp_token_issued", { grant_type: "authorization_code" });
-      break;
-    case "/oauth2/register":
-      captureServerEvent("mcp_client_registered", { app: redirectHost((body.redirect_uris as unknown[] | undefined)?.[0]) });
-      break;
     case "/api-key/create":
       captureServerEvent("api_key_created", {}, userId);
       break;
@@ -74,13 +66,13 @@ const productEvents = createAuthMiddleware(async (ctx) => {
 export const auth = betterAuth({
   appName: "ErgStats",
   baseURL: appUrl(),
-  // Better Auth's warnings and errors, into the app's logs. Messages only:
-  // the extra arguments can hold request details and user records.
+  // Better Auth's warnings and errors, messages only: the extra arguments can
+  // hold request details and user records.
   logger: {
     level: "warn",
     log: (level, message) => {
-      if (level === "error") log.error(`[auth] ${message}`);
-      else if (level === "warn") log.warn(`[auth] ${message}`);
+      if (level === "error") console.error(`[auth] ${message}`);
+      else if (level === "warn") console.warn(`[auth] ${message}`);
     },
   },
   hooks: { after: productEvents },

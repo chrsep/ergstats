@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyToolError, oauthClientLabel, summarizeArguments, userAgentProduct } from "./mcp-events";
+import { classifyToolError, oauthClientLabel, summarizeArguments } from "./mcp-events";
 
 describe("MCP event filters", () => {
   it("keeps enums and counts, and turns dates into a range length", () => {
@@ -26,8 +26,6 @@ describe("MCP event filters", () => {
   });
 
   it("labels clients coarsely", () => {
-    expect(userAgentProduct("claude-code/2.1.0 (linux)")).toBe("claude-code");
-    expect(userAgentProduct("Mozilla/5.0 (Macintosh)")).toBe("mozilla");
     expect(oauthClientLabel("https://claude.ai/oauth/mcp-oauth-client-metadata")).toBe("claude.ai");
     expect(oauthClientLabel("Xk3v9a")).toBe("registered");
   });

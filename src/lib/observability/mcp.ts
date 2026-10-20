@@ -5,16 +5,14 @@ import { instrument } from "@posthog/mcp";
 import type { PostHog } from "posthog-node";
 
 import { deploymentEnvironment, release } from "./config";
-import { log } from "./logger";
 import {
   classifyToolError,
   type McpRequestStats,
   oauthClientLabel,
   sanitizeMcpEvent,
-  userAgentProduct,
 } from "./mcp-events";
 import { pseudonymFor } from "./pseudonym";
-import { captureError, captureEvent, posthogServer } from "./server";
+import { captureError, posthogServer } from "./server";
 
 /**
  * MCP usage analytics on top of PostHog's MCP SDK, which records every tool
@@ -24,19 +22,15 @@ import { captureError, captureEvent, posthogServer } from "./server";
  * and keeps the athlete's data out (see mcp-events.ts).
  */
 export interface McpTelemetry {
-  /** Runs one authorized request so its events and spans are attributed to the caller. */
+  /** Runs one authorized request so its events are attributed to the caller. */
   withRequest(req: Request, authInfo: AuthInfo, run: () => Promise<Response>): Promise<Response>;
   /** Hooks a fresh per-request server, before its tools are registered. */
   instrumentServer(server: McpServer): void;
   /** A tool call failed; unexpected failures are reported to error tracking. */
   toolFailed(error: unknown): void;
-  /** A request was turned away before reaching the server. */
-  rejected(req: Request, reason: McpRejection, status: number): void;
-  /** fetch for Concept2 API calls: counted per tool call and traced. */
+  /** fetch for Concept2 API calls: counted and timed per tool call. */
   fetch: typeof fetch;
 }
-
-export type McpRejection = "no_token" | "invalid_token" | "invalid_api_key" | "rate_limited";
 
 const requests = new AsyncLocalStorage<McpRequestStats>();
 
@@ -49,43 +43,29 @@ export function createMcpTelemetry(posthog: PostHog | null = posthogServer()): M
   if (!posthog) return undefined;
   const environment = deploymentEnvironment();
 
-  const tracedFetch: typeof fetch = async (input, init) => {
+  const countingFetch: typeof fetch = async (input, init) => {
     const stats = requests.getStore();
-    const url = new URL(input instanceof Request ? input.url : String(input));
-    // Ids in the path would make every workout its own span name.
-    const route = url.pathname.replace(/\/\d+(?=\/|$)/g, "/:id");
-    const method = init?.method ?? "GET";
     const started = performance.now();
-    return posthog.withSpan(
-      `concept2 ${method} ${route}`,
-      { kind: "client", attributes: { "http.request.method": method, "url.path": route, "server.address": url.host } },
-      async (span) => {
-        try {
-          const res = await fetch(input, init);
-          span.setAttribute("http.response.status_code", res.status);
-          if (!res.ok) {
-            span.setStatus("error", `HTTP ${res.status}`);
-            if (stats) {
-              stats.upstreamFailures += 1;
-              stats.upstreamStatus = res.status;
-            }
-          }
-          return res;
-        } catch (error) {
-          if (stats) stats.upstreamFailures += 1;
-          throw error;
-        } finally {
-          if (stats) {
-            stats.upstreamRequests += 1;
-            stats.upstreamMs += performance.now() - started;
-          }
-        }
-      },
-    );
+    try {
+      const res = await fetch(input, init);
+      if (!res.ok && stats) {
+        stats.upstreamFailures += 1;
+        stats.upstreamStatus = res.status;
+      }
+      return res;
+    } catch (error) {
+      if (stats) stats.upstreamFailures += 1;
+      throw error;
+    } finally {
+      if (stats) {
+        stats.upstreamRequests += 1;
+        stats.upstreamMs += performance.now() - started;
+      }
+    }
   };
 
   return {
-    fetch: tracedFetch,
+    fetch: countingFetch,
 
     withRequest(req, authInfo, run) {
       const userId = userIdOf(authInfo);
@@ -110,21 +90,12 @@ export function createMcpTelemetry(posthog: PostHog | null = posthogServer()): M
         register(
           name,
           config as never,
-          (async (...args: unknown[]) =>
-            posthog.withSpan(`mcp tool ${name}`, { kind: "server", attributes: { "mcp.tool.name": name } }, async (span) => {
-              const result = (await callback(...args)) as { isError?: boolean; content?: unknown; structuredContent?: unknown };
-              const stats = requests.getStore();
-              if (stats) {
-                stats.responseBytes = Buffer.byteLength(JSON.stringify(result.structuredContent ?? result.content ?? ""));
-                span.setAttributes({
-                  "mcp.response.bytes": stats.responseBytes,
-                  "concept2.requests": stats.upstreamRequests,
-                  "mcp.auth_method": stats.authMethod,
-                });
-              }
-              if (result.isError) span.setStatus("error", stats?.errorCategory ?? "tool error");
-              return result;
-            })) as never,
+          (async (...args: unknown[]) => {
+            const result = (await callback(...args)) as { content?: unknown; structuredContent?: unknown };
+            const stats = requests.getStore();
+            if (stats) stats.responseBytes = Buffer.byteLength(JSON.stringify(result.structuredContent ?? result.content ?? ""));
+            return result;
+          }) as never,
         )) as typeof server.registerTool;
 
       instrument(server, posthog, {
@@ -150,19 +121,11 @@ export function createMcpTelemetry(posthog: PostHog | null = posthogServer()): M
       const stats = requests.getStore();
       if (stats) stats.errorCategory = category;
       if (category === "internal") {
-        log.error("[mcp] tool failed", { category }, error);
+        console.error("[mcp] tool failed", error);
         captureError(posthog, error, { source: "mcp_tool", auth_method: stats?.authMethod }, stats?.userId);
       } else if (category === "concept2_unavailable" || category === "concept2_timeout") {
-        log.warn("[mcp] Concept2 unavailable", { category, status: stats?.upstreamStatus });
+        console.warn("[mcp] Concept2 unavailable", { category, status: stats?.upstreamStatus });
       }
-    },
-
-    rejected(req, reason, status) {
-      captureEvent(posthog, "mcp_request_rejected", {
-        reason,
-        status,
-        client: userAgentProduct(req.headers.get("user-agent")),
-      });
     },
   };
 }

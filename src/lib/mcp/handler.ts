@@ -83,20 +83,11 @@ export function createErgstatsMcpHandler(deps: HandlerDeps) {
   return async function handler(req: Request): Promise<Response> {
     const key = readApiKey(req);
     if (!key) {
-      let authorized = false;
-      const res = await deps.withOAuth(req, (request, authInfo) => {
-        authorized = true;
-        return run(request, authInfo);
-      });
-      // A client's first, tokenless request is how every sign-in starts, so
-      // these also count connection attempts against those that get a token.
-      if (!authorized) telemetry?.rejected(req, req.headers.has("authorization") ? "invalid_token" : "no_token", res.status);
-      return res;
+      return deps.withOAuth(req, run);
     }
 
     const check = await deps.verifyKey(key);
     if (!check.ok) {
-      telemetry?.rejected(req, check.status === 429 ? "rate_limited" : "invalid_api_key", check.status);
       const headers: Record<string, string> =
         check.status === 401
           ? { "www-authenticate": `Bearer resource_metadata="${deps.resourceMetadataUrl}", error="invalid_token"` }

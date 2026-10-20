@@ -48,7 +48,10 @@ function optedOut(): boolean {
   }
 }
 
-/** The same signals posthog-js checks for respect_dnt. */
+/**
+ * Do Not Track and Global Privacy Control. posthog-js ignores respect_dnt in
+ * cookieless mode, so these are checked here instead.
+ */
 function browserSaysNo(): boolean {
   const nav = window.navigator as Navigator & { globalPrivacyControl?: boolean; msDoNotTrack?: string };
   const win = window as Window & { doNotTrack?: string };
@@ -86,7 +89,7 @@ export function setAnalyticsEnabled(enabled: boolean): void {
 }
 
 export function loadAnalytics(): Promise<PostHog | null> {
-  if (!POSTHOG_TOKEN || typeof window === "undefined" || optedOut()) return Promise.resolve(null);
+  if (!POSTHOG_TOKEN || typeof window === "undefined" || optedOut() || browserSaysNo()) return Promise.resolve(null);
   loading ??= import("posthog-js")
     .then(({ default: posthog }) => {
       posthog.init(POSTHOG_TOKEN!, {
@@ -95,7 +98,6 @@ export function loadAnalytics(): Promise<PostHog | null> {
         defaults: "2026-05-30",
         cookieless_mode: "always",
         person_profiles: "never",
-        respect_dnt: true,
         advanced_disable_flags: true,
         capture_pageview: "history_change",
         capture_pageleave: true,

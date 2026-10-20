@@ -7,7 +7,6 @@ import { account, oauthConsent } from "@/db/schema";
 import { appUrl, mcpUrl, resourceMetadataUrl } from "@/lib/app-url";
 import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
-import { log } from "@/lib/observability/logger";
 import { createMcpTelemetry } from "@/lib/observability/mcp";
 import { type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck } from "./handler";
 import { MCP_SCOPE } from "./scopes";
@@ -122,7 +121,7 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
   try {
     ({ accessToken } = await auth.api.getAccessToken({ body: { accountId: row.id, userId } }));
   } catch (error) {
-    log.warn("[mcp] Concept2 token refresh failed", {}, error);
+    console.error("[mcp] Concept2 token refresh failed", error);
   }
   if (!accessToken) {
     throw new NotConnectedError(

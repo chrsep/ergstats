@@ -4,8 +4,8 @@ import { deploymentEnvironment, POSTHOG_HOSTS, release, serverToken } from "./co
 import { pseudonymFor } from "./pseudonym";
 
 /**
- * The server-side PostHog client: product events, MCP tool calls, exceptions
- * and traces. Events carry a pseudonymous id (see pseudonym.ts) and never an
+ * The server-side PostHog client: product events, MCP tool calls and
+ * exceptions. Events carry a pseudonymous id (see pseudonym.ts) and never an
  * email, a name or workout data.
  *
  * GeoIP is off for every server event: PostHog would see the IP of the Vercel
@@ -24,7 +24,6 @@ export function posthogServer(): PostHog | null {
         enableExceptionAutocapture: false,
         // Functions flush at the end of each request (see telemetry.ts), so batching is all that's needed here.
         flushAt: 50,
-        traces: { serviceName: "ergstats", serviceVersion: release(), environment: deploymentEnvironment() },
         before_send: (event) => {
           event.properties = { ...event.properties, environment: deploymentEnvironment(), $geoip_disable: true };
           return event;

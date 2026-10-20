@@ -26,14 +26,13 @@ async function decode(body: unknown): Promise<unknown> {
   return JSON.parse((bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes).toString("utf8"));
 }
 
-/** What PostHog would have received: event batches and OTLP span exports. */
+/** What PostHog would have received: event batches. */
 const sent: { url: string; body: unknown }[] = [];
 
 const posthog = new PostHog("phc_test", {
   host: "https://eu.i.posthog.com",
   flushAt: 1000,
   disableGeoip: true,
-  traces: { serviceName: "ergstats-test" },
   fetch: async (url, options) => {
     sent.push({ url, body: await decode(options.body) });
     return { status: 200, text: async () => "{}", json: async () => ({}) };
@@ -81,10 +80,6 @@ function events(): Captured[] {
   return sent.flatMap(({ body }) => ((body as { batch?: Captured[] })?.batch ?? []));
 }
 
-function spanNames(): string[] {
-  return JSON.stringify(sent.filter((s) => s.url.includes("/traces")).map((s) => s.body)).match(/"name":"[^"]+"/g) ?? [];
-}
-
 beforeAll(async () => {
   vi.stubGlobal("fetch", concept2);
   const transport = new StreamableHTTPClientTransport(new URL("https://ergstats.test/mcp"), {
@@ -98,7 +93,6 @@ beforeAll(async () => {
   await client.callTool({ name: "get_workout", arguments: { workout_id: 999 } });
   await client.callTool({ name: "get_profile", arguments: {} });
   await client.close();
-  await handler(new Request("https://ergstats.test/mcp", { method: "POST", body: "{}", headers: { "user-agent": "openai-mcp/1.0.0" } }));
   await new Promise((resolve) => setTimeout(resolve, 10));
   await posthog.flush();
 });
@@ -147,14 +141,11 @@ describe("MCP telemetry", () => {
     expect(events().map((e) => e.event)).not.toContain("$identify");
   });
 
-  it("counts requests turned away before sign-in", () => {
-    const rejected = events().find((e) => e.event === "mcp_request_rejected");
-    expect(rejected?.properties).toMatchObject({ reason: "no_token", status: 401, client: "openai-mcp", $process_person_profile: false });
-  });
-
-  it("traces tool calls and the Concept2 requests they make", () => {
-    const names = spanNames();
-    expect(names).toContain('"name":"mcp tool list_workouts"');
-    expect(names).toContain('"name":"concept2 GET /api/users/me/results/:id"');
+  it("counts and times the Concept2 requests each call makes", () => {
+    const list = events().find((e) => e.properties.$mcp_tool_name === "list_workouts");
+    expect(list?.properties.upstream_requests).toBe(1);
+    expect(list?.properties.upstream_ms).toEqual(expect.any(Number));
+    const missing = events().find((e) => e.properties.$mcp_tool_name === "get_workout");
+    expect(missing?.properties).toMatchObject({ upstream_failures: 1, upstream_status: 404 });
   });
 });

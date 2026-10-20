@@ -1,12 +1,11 @@
 import { after } from "next/server";
 
-import { flushLogs } from "./logger";
 import { posthogServer } from "./server";
 
 const FLUSH_TIMEOUT_MS = 3_000;
 
 /**
- * Sends whatever this request queued (events, exceptions, spans, logs).
+ * Sends whatever this request queued (events and exceptions).
  * Vercel freezes a function once its response is done, so anything left in a
  * queue would wait for the next request on that instance, or be lost.
  */
@@ -15,7 +14,7 @@ export async function flushTelemetry(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
   // Bounded, so a PostHog outage costs each request a few seconds of function time at most.
   await Promise.race([
-    Promise.all([posthogServer()?.flush().catch(() => {}), flushLogs()]),
+    posthogServer()?.flush().catch(() => {}),
     new Promise((resolve) => setTimeout(resolve, FLUSH_TIMEOUT_MS)),
   ]);
 }
