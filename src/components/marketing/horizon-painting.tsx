@@ -12,7 +12,7 @@ export function HorizonPainting({ className }: { className?: string }) {
   const common = { alt: "", loading: "eager", fetchPriority: "high" } as const;
   const {
     props: { srcSet: wideSrcSet, sizes: wideSizes },
-  } = getImageProps({ ...common, src: wide, sizes: "1600px" });
+  } = getImageProps({ ...common, src: wide, sizes: "(min-width: 105rem) 1680px, (min-width: 64rem) 100vw, 140vw" });
   const { props } = getImageProps({ ...common, src: tall, sizes: "140vw" });
 
   return (

@@ -8,7 +8,6 @@ import { FaqList } from "@/components/marketing/faq";
 import { GuideCards, McpUrlBar } from "@/components/marketing/guide-cards";
 import { HorizonPainting } from "@/components/marketing/horizon-painting";
 import {
-  Container,
   Eyebrow,
   PageGrid,
   Panel,
@@ -96,12 +95,12 @@ export default function HomePage() {
 
       <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 outline-none lg:scroll-mt-18">
         {/* Always dark. On phones the painting runs edge to edge and up under the header; from md it is a
-            card lined up with the header that sits flush on the next section. */}
+            wide card, wider than the header's content, that sits flush on the next section. */}
         <div className="bg-[#0B1514] text-[#F2F6F5]">
-          <Container className="max-md:px-0">
+          <div className="mx-auto w-full max-w-[105rem] md:px-4 lg:px-6">
             <section
               aria-labelledby="hero-title"
-              className="relative isolate -mt-16 flex min-h-[max(40rem,100svh)] flex-col items-center overflow-hidden bg-[#050A09] px-5 pt-16 pb-6 text-center md:mt-0 md:min-h-[clamp(40rem,calc(100svh-4.5rem),56rem)] md:rounded-t-[1.75rem] md:border md:border-b-0 md:border-white/7 md:px-14 md:pt-14 md:pb-9"
+              className="relative isolate -mt-16 flex min-h-[max(40rem,100svh)] flex-col items-center overflow-hidden bg-[#050A09] px-5 pt-16 pb-6 text-center md:mt-0 md:min-h-[clamp(36rem,52vw,50rem)] md:rounded-t-[2.5rem] md:border md:border-b-0 md:border-white/7 md:px-14 md:pt-14 md:pb-9"
             >
               <HorizonPainting className="absolute inset-0 -z-10 size-full object-cover object-bottom" />
               <div className="my-auto flex max-w-235 flex-col items-center gap-5 py-10 md:gap-5.5">
@@ -130,7 +129,7 @@ export default function HomePage() {
                 <p className="font-mono text-xs">Free · Read-only · Open source</p>
               </div>
             </section>
-          </Container>
+          </div>
         </div>
 
         <Section id="guides" tone="muted" aria-labelledby="guides-title">
