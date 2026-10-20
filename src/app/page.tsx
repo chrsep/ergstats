@@ -89,7 +89,7 @@ export default function HomePage() {
     <>
       <JsonLd data={structuredData} />
       {/* On phones the painting runs up under a black fade, with solid buttons so they stay clear. */}
-      <SiteHeader className="dark border-transparent bg-transparent bg-linear-to-b from-black/90 via-black/60 to-transparent text-foreground max-md:backdrop-blur-none md:bg-[#0B1514] md:bg-none">
+      <SiteHeader className="dark border-b-0 bg-transparent bg-linear-to-b from-black/90 via-black/60 to-transparent text-foreground max-md:backdrop-blur-none md:bg-[#0B1514] md:bg-none">
         <HeaderGitHub className="max-md:rounded-full max-md:border max-md:border-white/20 max-md:bg-[#0F1A19] max-md:text-foreground" />
         <HeaderSignIn className="max-md:rounded-full max-md:border-white/20! max-md:bg-[#0F1A19]! max-md:hover:bg-[#1A2826]!" />
       </SiteHeader>
