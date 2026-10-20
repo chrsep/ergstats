@@ -30,11 +30,11 @@ export interface Faq {
 export const FAQS: Faq[] = [
   {
     question: "How do I connect my Concept2 Logbook to ChatGPT?",
-    answer: `In ChatGPT, add a custom connector under Settings → Apps (custom connectors need developer mode). Paste ${CANONICAL_MCP_URL}, choose OAuth and sign in with your Concept2 Logbook account. ChatGPT can then read your workouts whenever you ask about your training.`,
+    answer: `In ChatGPT, open the Plugins page (chatgpt.com/plugins), click +, then Add custom MCP server. Paste ${CANONICAL_MCP_URL}, choose OAuth, pick Create as a plugin and sign in with your Concept2 Logbook account. ChatGPT can then read your workouts whenever you ask about your training.`,
   },
   {
     question: "How do I connect my Concept2 Logbook to Claude?",
-    answer: `In Claude on the web or desktop, open Settings → Connectors, choose Add custom connector and paste ${CANONICAL_MCP_URL}. Click Connect and sign in with Concept2. Claude can then answer questions about your splits, PBs and training load.`,
+    answer: `In Claude on the web or desktop, open Customize → Connectors, click + Add, then Add custom connector, and paste ${CANONICAL_MCP_URL}. Click Continue, then Add, and sign in with Concept2. Claude can then answer questions about your splits, PBs and training load.`,
   },
   {
     question: "Does ErgStats work with Claude Code, Codex and Cursor?",
