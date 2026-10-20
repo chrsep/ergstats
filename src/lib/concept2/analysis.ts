@@ -406,14 +406,21 @@ function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
 }
 
-/** Week (Monday) or month keys from `from` to `to`, inclusive. */
-function periodKeys(from: string, to: string, groupBy: "week" | "month"): string[] {
+/** Past this many weeks or months, empty ones aren't listed: the table would cost more than it tells. */
+export const MAX_FILLED_PERIODS = 260;
+
+/** Week (Monday) or month keys from `from` to `to`, inclusive, or null when there would be too many to list. */
+function periodKeys(from: string, to: string, groupBy: "week" | "month"): string[] | null {
   const keys: string[] = [];
   if (groupBy === "week") {
-    for (let k = weekStart(from); k <= to; k = addDays(k, 7)) keys.push(k);
+    for (let k = weekStart(from); k <= to; k = addDays(k, 7)) {
+      if (keys.length === MAX_FILLED_PERIODS) return null;
+      keys.push(k);
+    }
   } else {
     const end = to.slice(0, 7);
     for (let k = from.slice(0, 7); k <= end; ) {
+      if (keys.length === MAX_FILLED_PERIODS) return null;
       keys.push(k);
       const [y, m] = k.split("-").map(Number);
       k = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
@@ -452,16 +459,18 @@ export function trainingSummary(
     byPeriod.set(key, p);
   }
 
-  const range = opts.from && opts.to && opts.from <= opts.to ? { from: opts.from, to: opts.to } : null;
+  // A truncated read is missing the oldest workouts, so its weeks would look empty and its averages low.
+  const range =
+    !opts.truncated && opts.from && opts.to && opts.from <= opts.to ? { from: opts.from, to: opts.to } : null;
   if (range) {
-    for (const key of periodKeys(range.from, range.to, opts.groupBy)) {
+    for (const key of periodKeys(range.from, range.to, opts.groupBy) ?? []) {
       if (!byPeriod.has(key)) byPeriod.set(key, { sessions: 0, meters: 0, time: 0 });
     }
   }
 
   let weekly: TrainingSummary["weekly"] = null;
   if (range) {
-    const weeks = periodKeys(range.from, range.to, "week");
+    const weeks = daysBetween(weekStart(range.from), weekStart(range.to)) / 7 + 1;
     const perWeek = new Map<string, number>();
     for (const r of results) {
       const week = weekStart(localDate(r));
@@ -470,8 +479,8 @@ export function trainingSummary(
     // Averages over the range's length, so a partial first or last week doesn't count as a whole one.
     const rangeWeeks = (daysBetween(range.from, range.to) + 1) / 7;
     weekly = {
-      weeks: weeks.length,
-      weeksWithTwoPlus: weeks.filter((w) => (perWeek.get(w) ?? 0) >= 2).length,
+      weeks,
+      weeksWithTwoPlus: [...perWeek.values()].filter((n) => n >= 2).length,
       sessionsPerWeek: results.length / rangeWeeks,
       secondsPerWeek: time / 10 / rangeWeeks,
     };

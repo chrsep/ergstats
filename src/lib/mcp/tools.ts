@@ -463,7 +463,8 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     async ({ from, to, machine, group_by }, ctx) => {
       try {
         const client = await deps.getClient(ctx.http?.authInfo);
-        const end = to ?? today();
+        // Nothing is logged in the future, and counting empty future weeks would drag the averages down.
+        const end = to && to < today() ? to : today();
         const start = from ?? isoDaysAgo(end, 83);
         const { results, truncated } = await client.listAllResults({ from: start, to: end, type: machine });
         const summary = trainingSummary(results, { from: start, to: end, groupBy: group_by, truncated });

@@ -47,6 +47,14 @@ describe("trainingSummary", () => {
     expect(s.daysSinceLast).toBe(2);
   });
 
+  it("doesn't list empty periods for huge ranges or truncated reads", () => {
+    const decades = trainingSummary(allResults, { from: "1990-01-01", to: "9999-12-31", groupBy: "week" });
+    expect(decades.byPeriod).toHaveLength(2);
+    const truncated = trainingSummary(allResults, { from: "2026-08-31", to: "2026-10-20", groupBy: "week", truncated: true });
+    expect(truncated.byPeriod).toHaveLength(2);
+    expect(truncated.weekly).toBeNull();
+  });
+
   it("fills empty months", () => {
     const s = trainingSummary(allResults, { from: "2026-08-15", to: "2026-10-20", groupBy: "month" });
     expect(s.byPeriod.map((p) => [p.period, p.sessions])).toEqual([
