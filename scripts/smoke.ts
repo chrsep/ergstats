@@ -56,8 +56,9 @@ const feedback = await client.callTool({
   name: "send_feedback",
   arguments: { type: "missing_capability", summary: "Smoke test: the user asked for something no tool covers." },
 });
-console.log((feedback.content as { text: string }[])[0].text);
-if (feedback.isError) throw new Error("send_feedback failed");
+const feedbackText = (feedback.content as { text: string }[])[0]?.text ?? "";
+console.log(feedbackText);
+if (feedback.isError || !feedbackText.startsWith("Sent")) throw new Error("send_feedback did not store the report");
 await client.close();
 
 const bad = await fetch(`${base}/mcp`, {

@@ -56,7 +56,7 @@ export const STROKE_LIMIT = { default: 100, max: 250 };
 
 // Claude Code loads only this text (not the tool list) until it searches for a
 // tool, so it says what questions the server answers.
-export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Concept2 Logbook: rowing, SkiErg and BikeErg workouts, splits, intervals, heart rate, stroke data and personal bests. Read-only.
+export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Concept2 Logbook: rowing, SkiErg and BikeErg workouts, splits, intervals, heart rate, stroke data and personal bests. The Logbook is read-only.
 
 - Volume, consistency or trends: get_training_summary. PRs: get_personal_bests.
 - Find sessions with list_workouts, then get_workout for splits or intervals and get_workout_strokes for pacing within a piece.
