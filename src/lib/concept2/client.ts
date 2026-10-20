@@ -1,5 +1,4 @@
 import type {
-  Concept2Challenge,
   Concept2List,
   Concept2Result,
   Concept2Stroke,
@@ -37,12 +36,6 @@ export interface ResultsQuery {
   /** Results per page. Concept2 allows up to 250. */
   number?: number;
 }
-
-export type ChallengesQuery =
-  | { kind: "current" }
-  | { kind: "upcoming" | "recent"; days?: number }
-  | { kind: "season"; season: number }
-  | { kind: "events"; year: number };
 
 export interface Concept2ClientOptions {
   accessToken: string;
@@ -105,21 +98,6 @@ export class Concept2Client {
   async getStrokes(id: number): Promise<Concept2Stroke[]> {
     const body = await this.get<{ data: Concept2Stroke[] }>(`/api/users/me/results/${id}/strokes`);
     return body.data ?? [];
-  }
-
-  /** Concept2's public challenges and events. These need no user scope. */
-  async listChallenges(query: ChallengesQuery): Promise<Concept2Challenge[]> {
-    const path =
-      query.kind === "current"
-        ? "/api/challenges/current"
-        : query.kind === "season"
-          ? `/api/challenges/season/${query.season}`
-          : query.kind === "events"
-            ? `/api/challenges/events/${query.year}`
-            : `/api/challenges/${query.kind}/${query.days ?? 30}`;
-    const body = await this.get<{ data: Concept2Challenge[] | Concept2Challenge | null }>(path);
-    if (!body.data) return [];
-    return Array.isArray(body.data) ? body.data : [body.data];
   }
 
   /**
