@@ -42,7 +42,7 @@ export interface GuideDetails {
 }
 
 const API_KEY_FALLBACK =
-  "Use an API key instead: create one in your ErgStats dashboard and send it as an Authorization header from the same config.";
+  "Use an API key instead: create one in your ErgStats dashboard and send it from the same config as an “Authorization: Bearer <your key>” header.";
 
 /**
  * Per-client copy for the setup guides. Plan limits come from the vendors' help
@@ -54,14 +54,14 @@ const GUIDE_DETAILS: Record<string, GuideDetails> = {
     kind: "Connector",
     summary: "Customize → Connectors → + Add → Add custom connector. Paste the URL and sign in. Works on every plan, including Free.",
     requirements:
-      "Works on every Claude plan. Free accounts can add one custom connector. On Team and Enterprise, an owner adds ErgStats under Organization settings → Connectors first, then you click Connect.",
+      "Works on every Claude plan. Free accounts can add one custom connector. On Team and Enterprise, someone who manages your organization’s connectors adds ErgStats under Organization settings → Connectors first, then you click Connect.",
     menuPath: ["Customize", "Connectors", "+ Add", "Add custom connector"],
     askHint: "Start a new chat. If ErgStats is off, switch it on from + → Connectors, then ask:",
     troubleshooting: [
       {
         question: "I don’t see Add custom connector",
         answer:
-          "On Team and Enterprise plans only owners can add custom connectors. Ask an owner to add ErgStats under Organization settings → Connectors, then find it under Customize → Connectors and click Connect.",
+          "On Team and Enterprise plans, only the people who manage your organization’s connectors, usually owners, can add custom ones. Ask one of them to add ErgStats under Organization settings → Connectors, then find it under Customize → Connectors and click Connect.",
       },
       {
         question: "Claude doesn’t use my workouts",
@@ -73,14 +73,14 @@ const GUIDE_DETAILS: Record<string, GuideDetails> = {
     kind: "Plugin",
     summary: "Plugins → + → Add custom MCP server. Paste the URL, choose OAuth and sign in. Pro, Business, Enterprise and Edu.",
     requirements:
-      "Custom MCP servers need ChatGPT Pro, Business, Enterprise or Edu, on chatgpt.com in a browser. On a Business workspace, only admins and owners can add one.",
+      "Custom MCP servers need ChatGPT Pro, Business, Enterprise or Edu, on chatgpt.com in a browser. On Business, only admins and owners can add one. On Enterprise and Edu, an admin has to give you permission to create custom apps first.",
     menuPath: ["Plugins", "+", "Add custom MCP server"],
     askHint: "Start a new chat, type @, pick ErgStats and ask:",
     troubleshooting: [
       {
         question: "I don’t see Add custom MCP server",
         answer:
-          "Custom MCP servers need ChatGPT Pro, Business, Enterprise or Edu, and only work on chatgpt.com in a browser, not in the mobile apps. On a Business workspace, ask an admin or owner to add ErgStats.",
+          "Custom MCP servers need ChatGPT Pro, Business, Enterprise or Edu, and only work on chatgpt.com in a browser, not in the mobile apps. On Business, ask an admin or owner to add ErgStats. On Enterprise and Edu, ask an admin for permission to create custom apps, or to add ErgStats for the workspace.",
       },
       {
         question: "ChatGPT doesn’t use my workouts",
@@ -149,7 +149,7 @@ export const FAQS: Faq[] = [
   {
     question: "Which Claude and ChatGPT plans does ErgStats work with?",
     answer:
-      "Claude: every plan, including Free, which allows one custom connector. On Team and Enterprise an owner adds it first. ChatGPT: Pro, Business, Enterprise and Edu, on chatgpt.com in a browser. On Business, only workspace admins and owners can add it.",
+      "Claude: every plan, including Free, which allows one custom connector. On Team and Enterprise, someone who manages the organization’s connectors adds it first. ChatGPT: Pro, Business, Enterprise and Edu, on chatgpt.com in a browser. On Business, only workspace admins and owners can add it, and on Enterprise and Edu an admin has to grant permission first.",
   },
   {
     question: "Does ErgStats work with Claude Code, Codex and Cursor?",
