@@ -88,7 +88,7 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={structuredData} />
-      <SiteHeader className="dark border-transparent bg-[#0B1514]/80 text-foreground md:bg-[#0B1514]">
+      <SiteHeader className="dark border-transparent bg-transparent bg-linear-to-b from-[#0B1514]/90 to-[#0B1514]/55 text-foreground max-md:backdrop-blur-none md:bg-[#0B1514] md:bg-none">
         <HeaderGitHub />
         <HeaderSignIn />
       </SiteHeader>
