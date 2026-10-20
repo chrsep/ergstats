@@ -3,7 +3,7 @@ export const MCP_SCOPE = "logbook:read";
 
 /** What each OAuth scope lets a connected app do, in the words the consent screen and dashboard use. */
 const SCOPE_DESCRIPTIONS: Record<string, string> = {
-  [MCP_SCOPE]: "Read your Concept2 Logbook: workouts, splits, stroke data and personal bests",
+  [MCP_SCOPE]: "Read your Concept2 Logbook: workouts, splits, stroke data and personal bests, and send feedback about ErgStats to its developer",
   profile: "See your name and profile picture",
   email: "See your email address",
   offline_access: "Stay connected until you disconnect it",
