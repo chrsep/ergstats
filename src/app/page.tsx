@@ -21,7 +21,7 @@ import {
   ledeClass,
 } from "@/components/marketing/page-layout";
 import { SiteFooter } from "@/components/site-footer";
-import { HeaderSignIn, SiteHeader } from "@/components/site-header";
+import { HeaderGitHub, HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { mcpUrl } from "@/lib/app-url";
 import { FAQS, GITHUB_URL, SITE_DESCRIPTION, SITE_URL, guideClients, guideDetails } from "@/lib/site";
@@ -89,7 +89,8 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={structuredData} />
-      <SiteHeader nav>
+      <SiteHeader>
+        <HeaderGitHub />
         <HeaderSignIn />
       </SiteHeader>
 
