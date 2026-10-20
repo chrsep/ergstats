@@ -27,7 +27,7 @@ export const HeaderSignedOut: Story = {
 
 export const HeaderPublic: Story = {
   render: () => (
-    <SiteHeader nav current="guides">
+    <SiteHeader nav>
       <HeaderSignIn />
     </SiteHeader>
   ),

@@ -69,7 +69,7 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
   return (
     <>
       <JsonLd data={howTo} />
-      <SiteHeader nav current="guides">
+      <SiteHeader nav>
         <HeaderSignIn />
       </SiteHeader>
 

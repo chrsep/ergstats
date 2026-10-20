@@ -3,31 +3,21 @@ import Link from "next/link";
 import { GitHubIcon } from "@/components/brand/github-icon";
 import { Logo } from "@/components/brand/logo";
 import { Container } from "@/components/marketing/page-layout";
-import { MobileNav, type NavLink } from "@/components/mobile-nav";
 import { buttonVariants } from "@/components/ui/button";
 import { GITHUB_URL } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
-export const SITE_NAV: NavLink[] = [
-  { id: "guides", label: "Setup guides", href: "/#guides" },
-  { id: "ask", label: "What to ask", href: "/#ask" },
-  { id: "faq", label: "FAQ", href: "/#faq" },
-];
-
 /**
  * Top bar shared by every page. Pass the right-hand actions as children. With `nav`,
- * it adds the public site links, which collapse into a full-screen menu on phones.
+ * it adds the "Star on GitHub" link the public pages show.
  */
 export function SiteHeader({
   children,
   nav = false,
-  current,
   className,
 }: {
   children?: React.ReactNode;
   nav?: boolean;
-  /** The SITE_NAV id of the page being shown. */
-  current?: string;
   className?: string;
 }) {
   return (
@@ -44,28 +34,16 @@ export function SiteHeader({
         </Link>
         <div className="flex items-center gap-2">
           {nav && (
-            <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-              {SITE_NAV.map((link) => (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  aria-current={link.id === current ? "true" : undefined}
-                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=true]:font-medium aria-[current=true]:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <a
-                href={GITHUB_URL}
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <GitHubIcon />
-                Star on GitHub
-              </a>
-            </nav>
+            <a
+              href={GITHUB_URL}
+              aria-label="Star on GitHub"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <GitHubIcon className="max-sm:size-5" />
+              <span className="max-sm:hidden">Star on GitHub</span>
+            </a>
           )}
           {children}
-          {nav && <MobileNav links={SITE_NAV} githubUrl={GITHUB_URL} signInHref="/dashboard" />}
         </div>
       </Container>
     </header>
