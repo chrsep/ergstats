@@ -22,14 +22,15 @@ function hr(avg: number) {
   return { average: avg, min: avg - jitter(25, 5), max: avg + jitter(8, 3), ending: avg + jitter(5, 3) };
 }
 
-function splitsByTime(totalTenths: number, splitTenths: number, pace500: number): Concept2Split[] {
+/** `pace` is tenths per `unit` meters: 500, or 1000 on the BikeErg. */
+function splitsByTime(totalTenths: number, splitTenths: number, pace: number, unit = 500): Concept2Split[] {
   const out: Concept2Split[] = [];
   for (let t = 0; t < totalTenths; t += splitTenths) {
     const time = Math.min(splitTenths, totalTenths - t);
-    const pace = jitter(pace500, 15);
+    const splitPace = jitter(pace, 15);
     out.push({
       time,
-      distance: Math.round((time / pace) * 500),
+      distance: Math.round((time / splitPace) * unit),
       stroke_rate: jitter(21, 1),
       calories_total: jitter(40, 4),
       wattminutes_total: jitter(240, 20),
@@ -126,8 +127,8 @@ function workout(id: number, date: string, kind: number): Concept2Result {
     }
     case 4: {
       // BikeErg 45 minutes (pace per 1000m).
-      const splits = splitsByTime(27000, 3000, 1100);
-      return { ...b, type: "bike", workout_type: "FixedTimeSplits", distance: sum(splits.map((s) => s.distance)) * 2, time: 27000, stroke_rate: 85, stroke_count: 3800, heart_rate: hr(138), calories_total: 520, workout: { splits } };
+      const splits = splitsByTime(27000, 3000, 1100, 1000);
+      return { ...b, type: "bike", workout_type: "FixedTimeSplits", distance: sum(splits.map((s) => s.distance)), time: 27000, stroke_rate: 85, stroke_count: 3800, heart_rate: hr(138), calories_total: 520, workout: { splits } };
     }
     default: {
       // 2k test, 500m splits.

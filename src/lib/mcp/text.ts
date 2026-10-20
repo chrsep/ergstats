@@ -36,6 +36,7 @@ export function join(parts: Cell[], sep = ", "): string {
 /** Shortens free text, like an athlete's comment, to one line. */
 export function clip(text: string | null, max: number): string | null {
   if (!text) return null;
-  const line = text.replace(/\s+/g, " ").trim();
-  return line.length > max ? `${line.slice(0, max - 1)}…` : line;
+  // By code point, so a cut never splits an emoji.
+  const chars = Array.from(text.replace(/\s+/g, " ").trim());
+  return chars.length > max ? `${chars.slice(0, max - 1).join("")}…` : chars.join("");
 }

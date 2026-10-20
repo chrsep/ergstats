@@ -55,8 +55,9 @@ export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Conce
 
 const PACE_NOTE = "pace per 500m, /1k on the BikeErg";
 
-/** The pace unit for tables about one workout. */
-const paceNote = (machine: MachineType) => (paceUnit(machine) === 1000 ? "pace per 1000m" : "pace per 500m");
+/** The pace unit for tables about one workout. MultiErg intervals mix machines, so they get the general note. */
+const paceNote = (machine: MachineType) =>
+  machine === "multierg" ? PACE_NOTE : paceUnit(machine) === 1000 ? "pace per 1000m" : "pace per 500m";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
