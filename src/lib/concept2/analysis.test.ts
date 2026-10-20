@@ -68,21 +68,13 @@ describe("workoutDetail", () => {
     // Concept2 sends 0 for readings it didn't take.
     expect(d.heartRate).toEqual({ average: 178, min: 120, max: 190, ending: 189, rest: null, recovery: null });
     expect(d.targets).toEqual({ strokeRate: 30, heartRateZone: null, pace: "1:53.0/500m", watts: null, calories: null });
-    expect(d.device).toMatchObject({
-      monitor: "5",
-      firmware: "211",
-      ergModel: "Model D/E, RowErg or Dynamic",
-      app: "ErgData 3.4",
-      deviceOs: "iOS 26.1",
-      heartRateMonitor: "BT",
-    });
     expect(d.segments[0]).toMatchObject({ calories: 34, heartRate: { min: 120, max: 176, ending: 175 } });
   });
 
   it("leaves optional fields null on sparse results", () => {
     const s = summarizeWorkout(allResults[2]);
     expect(s).toMatchObject({ dateUtc: null, source: null, comments: null, dragFactor: null, ranked: false });
-    expect(workoutDetail(allResults[2])).toMatchObject({ targets: null, device: null, heartRate: { average: 145 } });
+    expect(workoutDetail(allResults[2])).toMatchObject({ targets: null, heartRate: { average: 145 } });
   });
 });
 

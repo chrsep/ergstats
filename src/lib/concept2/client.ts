@@ -89,9 +89,8 @@ export class Concept2Client {
     return this.get("/api/users/me/results", { ...query });
   }
 
-  /** One result, with device metadata (monitor, firmware, app, heart rate strap). */
   async getResult(id: number): Promise<Concept2Result> {
-    const body = await this.get<{ data: Concept2Result }>(`/api/users/me/results/${id}`, { include: "metadata" });
+    const body = await this.get<{ data: Concept2Result }>(`/api/users/me/results/${id}`);
     return body.data;
   }
 

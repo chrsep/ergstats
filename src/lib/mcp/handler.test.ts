@@ -31,10 +31,6 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
     const pagination = { total: data.length, count: rows.length, per_page: perPage, current_page: page, total_pages: Math.ceil(data.length / perPage) };
     return json({ data: rows, meta: { pagination } });
   }
-  if (url.pathname === `/api/users/me/results/${twoK.id}`) {
-    // Device details only come back when asked for.
-    return json({ data: url.searchParams.get("include") === "metadata" ? twoK : { ...twoK, metadata: undefined } });
-  }
   if (url.pathname === `/api/users/me/results/${twoK.id}/strokes`) return json({ data: twoKStrokes });
   const result = allResults.find((r) => url.pathname === `/api/users/me/results/${r.id}`);
   if (result) return json({ data: result });
