@@ -30,7 +30,11 @@ export function CopyButton({
   }, [copied]);
 
   const copy = async () => {
-    await navigator.clipboard.writeText(value);
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      return; // Denied or unavailable: leave the button as it was.
+    }
     setCopied(true);
     onCopy?.();
   };

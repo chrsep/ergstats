@@ -2,7 +2,7 @@ import { ArrowRightIcon, CodeXmlIcon, MessageSquareIcon, TerminalIcon, type Luci
 import Link from "next/link";
 
 import { CopyButton } from "@/components/copy-button";
-import { InlineCode, h3Class } from "@/components/marketing/page-layout";
+import { InlineCode, h3Class, panelClass } from "@/components/marketing/page-layout";
 import { cn } from "@/lib/utils";
 
 export interface GuideCard {
@@ -23,7 +23,8 @@ export function GuideCards({ guides, className }: { guides: GuideCard[]; classNa
         key={guide.id}
         href={`/connect/${guide.id}`}
         className={cn(
-          "group col-span-full flex flex-col gap-4 rounded-2xl border bg-card p-6 transition-[border-color,box-shadow] outline-none hover:border-foreground/20 hover:shadow-[0_16px_32px_-24px_rgb(13_60_58/0.35)] focus-visible:ring-3 focus-visible:ring-ring/50 md:col-span-4 md:p-8",
+          panelClass,
+          "group col-span-full transition-[border-color,box-shadow] outline-none hover:border-foreground/20 hover:shadow-[0_16px_32px_-24px_rgb(13_60_58/0.35)] focus-visible:ring-3 focus-visible:ring-ring/50 md:col-span-4",
           className,
         )}
       >

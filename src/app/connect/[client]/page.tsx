@@ -51,7 +51,13 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
     name: `Connect your Concept2 Logbook to ${setup.name}`,
     url: `${SITE_URL}/connect/${setup.id}`,
     totalTime: "PT2M",
-    step: steps.map((s, i) => ({ "@type": "HowToStep", position: i + 1, name: s.name, text: s.text })),
+    // The visible step 3 ends in a colon before the prompt list, so the schema gets an example prompt to stand on its own.
+    step: steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.name,
+      text: i === 2 ? `${s.text} “${TOOLS[0].prompt}”` : s.text,
+    })),
   };
 
   return (
@@ -61,7 +67,7 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
         <HeaderSignIn />
       </SiteHeader>
 
-      <main id="main" tabIndex={-1} className="flex-1 pt-8 outline-none pb-18 md:pt-12 md:pb-24 lg:pb-32">
+      <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 pt-8 outline-none lg:scroll-mt-18 pb-18 md:pt-12 md:pb-24 lg:pb-32">
         <Container>
           <PageGrid className="items-start">
             <nav aria-label="Breadcrumb" className="col-span-full">

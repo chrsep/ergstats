@@ -52,7 +52,7 @@ const API_KEY_FALLBACK =
 const GUIDE_DETAILS: Record<string, GuideDetails> = {
   claude: {
     kind: "Connector",
-    summary: "Customize → Connectors → Add custom connector. Paste the URL and sign in. Works on every plan, including Free.",
+    summary: "Customize → Connectors → + Add → Add custom connector. Paste the URL and sign in. Works on every plan, including Free.",
     requirements:
       "Works on every Claude plan. Free accounts can add one custom connector. On Team and Enterprise, an owner adds ErgStats under Organization settings → Connectors first, then you click Connect.",
     menuPath: ["Customize", "Connectors", "+ Add", "Add custom connector"],

@@ -71,8 +71,10 @@ export function SectionHeading({
 }
 
 /** The card every grid on the public pages uses: one padding, one radius, one inner gap. */
+export const panelClass = "flex flex-col gap-4 rounded-2xl border bg-card p-6 md:p-8";
+
 export function Panel({ className, ...props }: React.ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-4 rounded-2xl border bg-card p-6 md:p-8", className)} {...props} />;
+  return <div className={cn(panelClass, className)} {...props} />;
 }
 
 /** Turns `backticked` words into inline code. */

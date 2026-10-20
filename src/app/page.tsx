@@ -93,7 +93,7 @@ export default function HomePage() {
         <HeaderSignIn />
       </SiteHeader>
 
-      <main id="main" tabIndex={-1} className="flex-1 outline-none">
+      <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 outline-none lg:scroll-mt-18">
         <section aria-labelledby="hero-title" className="pt-10 pb-18 md:pt-18 md:pb-24 lg:pt-24 lg:pb-32">
           <Container>
             <PageGrid className="items-center gap-y-10 md:gap-y-16">
