@@ -28,11 +28,14 @@ export function SiteHeader({ children, className }: { children?: React.ReactNode
 }
 
 /** The header's GitHub link: just the mark on phones, labelled from sm up. */
-export function HeaderGitHub() {
+export function HeaderGitHub({ className }: { className?: string }) {
   return (
     <a
       href={GITHUB_URL}
-      className="inline-flex size-11 items-center justify-center gap-2 rounded-xl text-[0.9375rem] text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-auto sm:px-3"
+      className={cn(
+        "inline-flex size-11 items-center justify-center gap-2 rounded-xl text-[0.9375rem] text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 sm:w-auto sm:px-3",
+        className,
+      )}
     >
       <GitHubIcon className="size-5 sm:size-4" />
       <span className="max-sm:sr-only">Star on GitHub</span>
@@ -41,9 +44,9 @@ export function HeaderGitHub() {
 }
 
 /** The header's sign-in link, sized for touch. */
-export function HeaderSignIn() {
+export function HeaderSignIn({ className }: { className?: string }) {
   return (
-    <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline", size: "touch" }))}>
+    <Link href="/dashboard" className={cn(buttonVariants({ variant: "outline", size: "touch" }), className)}>
       Sign in
     </Link>
   );

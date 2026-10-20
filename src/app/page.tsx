@@ -88,9 +88,10 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={structuredData} />
-      <SiteHeader className="dark border-transparent bg-transparent bg-linear-to-b from-[#0B1514]/90 to-[#0B1514]/55 text-foreground max-md:backdrop-blur-none md:bg-[#0B1514] md:bg-none">
-        <HeaderGitHub />
-        <HeaderSignIn />
+      {/* On phones the painting runs up under a black fade, with solid buttons so they stay clear. */}
+      <SiteHeader className="dark border-transparent bg-transparent bg-linear-to-b from-black/90 via-black/60 to-transparent text-foreground max-md:backdrop-blur-none md:bg-[#0B1514] md:bg-none">
+        <HeaderGitHub className="max-md:rounded-full max-md:border max-md:border-white/20 max-md:bg-[#0F1A19] max-md:text-foreground" />
+        <HeaderSignIn className="max-md:rounded-full max-md:border-white/20! max-md:bg-[#0F1A19]! max-md:hover:bg-[#1A2826]!" />
       </SiteHeader>
 
       <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 outline-none lg:scroll-mt-18">
