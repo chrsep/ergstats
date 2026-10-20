@@ -1,4 +1,4 @@
-import { CodeXmlIcon, EyeIcon, LockKeyholeIcon, ZapIcon } from "lucide-react";
+import { CodeXmlIcon, EyeIcon, LockKeyholeIcon, StarIcon, ZapIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -135,7 +135,7 @@ export default function HomePage() {
                     <span>
                       Open source under the MIT license.{" "}
                       <span className="font-medium text-primary underline underline-offset-3 group-hover:no-underline">
-                        Read the code on GitHub
+                        Star us on GitHub
                       </span>
                     </span>
                   </a>
@@ -289,7 +289,8 @@ export default function HomePage() {
                 Sign in with Concept2
               </Link>
               <a href={GITHUB_URL} className={buttonVariants({ size: "xl", variant: "outline", className: "font-medium" })}>
-                View the source
+                <StarIcon />
+                Star on GitHub
               </a>
             </div>
           </PageGrid>

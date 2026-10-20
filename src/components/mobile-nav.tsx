@@ -64,7 +64,7 @@ export function MobileNav({ links, githubUrl, signInHref }: { links: NavLink[]; 
               <a href={githubUrl} onClick={close} className={rowClass}>
                 <span className="flex items-center gap-3">
                   <GitHubIcon className="size-5" />
-                  GitHub
+                  Star on GitHub
                 </span>
                 <ArrowUpRightIcon className="size-5 text-primary" />
               </a>

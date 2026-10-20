@@ -60,7 +60,7 @@ export function SiteHeader({
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <GitHubIcon />
-                GitHub
+                Star on GitHub
               </a>
             </nav>
           )}
