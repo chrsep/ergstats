@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Concept2Client } from "@/lib/concept2/client";
 import { allResults, intervals, twoK, twoKStrokes, user } from "@/lib/concept2/__fixtures__/results";
 import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
+import type { AgentFeedback } from "./tools";
 
 const GOOD_KEY = "erg_test_key";
 
@@ -37,6 +38,10 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
   return new Response("not found", { status: 404 });
 }
 
+/** Reports send_feedback stored, and whether the fake store is full. */
+const feedback: { userId: unknown; report: AgentFeedback }[] = [];
+let feedbackFull = false;
+
 const handler = createErgstatsMcpHandler({
   dashboardUrl: "https://ergstats.com/dashboard",
   resourceMetadataUrl: RESOURCE_METADATA,
@@ -59,6 +64,11 @@ const handler = createErgstatsMcpHandler({
   async getClient(authInfo) {
     expect(authInfo?.extra?.userId).toBe("u1");
     return new Concept2Client({ accessToken: "c2-token", baseUrl: "https://c2.test", fetch: fakeConcept2 as typeof fetch });
+  },
+  async saveFeedback(authInfo, report) {
+    if (feedbackFull) return false;
+    feedback.push({ userId: authInfo?.extra?.userId, report });
+    return true;
   },
 });
 
@@ -113,7 +123,7 @@ describe("MCP endpoint", () => {
     expect(res.headers.get("retry-after")).toBe("30");
   });
 
-  it("lists only read-only training tools, answering in text", async () => {
+  it("lists read-only training tools and send_feedback, answering in text", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -123,10 +133,13 @@ describe("MCP endpoint", () => {
       "get_workout",
       "get_workout_strokes",
       "list_workouts",
+      "send_feedback",
     ]);
     for (const tool of tools) {
       expect(tool.title).toBeTruthy();
-      expect(tool.annotations?.readOnlyHint).toBe(true);
+      // send_feedback writes a report, so it is the one tool that isn't read-only.
+      expect(tool.annotations?.readOnlyHint).toBe(tool.name !== "send_feedback");
+      expect(tool.annotations?.destructiveHint).toBe(false);
       // Clients that see structuredContent read it instead of the text (or as well
       // as it), so results are text only and declare no output schema.
       expect(tool.outputSchema).toBeUndefined();
@@ -143,9 +156,10 @@ describe("MCP endpoint", () => {
     expect(result.structuredContent).toBeUndefined();
     const text = textOf(result);
     expect(text).toContain("4 workouts match, showing 1-4, newest first");
-    expect(text).toContain("date,machine,meters,time,pace,spm,hr,rest,id,comment\n");
-    expect(text).toContain("2026-10-18 07:30,RowErg,2000,7:31.4,1:52.9,30,178,,1001,Test day. Felt strong in the last 500.");
-    expect(text).toContain("2026-10-12 07:00,RowErg,2000,7:10.0,1:47.5,,,6:00.0,1004,");
+    expect(text).toContain("start,machine,meters,time,pace,spm,hr,rest,id,comment\n");
+    // Concept2 logs the end time; the list shows when each piece started.
+    expect(text).toContain("2026-10-18 07:22,RowErg,2000,7:31.4,1:52.9,30,178,,1001,Test day. Felt strong in the last 500.");
+    expect(text).toContain("2026-10-12 06:46,RowErg,2000,7:10.0,1:47.5,,,6:00.0,1004,");
   });
 
   it("tells the agent which page comes next", async () => {
@@ -188,6 +202,10 @@ describe("MCP endpoint", () => {
     const text = textOf(
       await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: twoK.id, segments: 4 } }),
     );
+    // A 2k is too short for decoupling or efficiency, but zones still apply.
+    expect(text).toContain("\nTime by heart rate, % of max 192: 70-80% 0:45, 80-90% 3:34, 90%+ 3:11.\n");
+    expect(text).not.toContain("ecoupling");
+    expect(text).not.toContain("Efficiency");
     expect(text).toContain("200 strokes in 4 equal-distance segments; pace per 500m.\nto_meters,to_time,pace,watts,spm,m_per_stroke,hr\n500,1:52.9,1:52.9,243,32,10,155\n");
   });
 
@@ -212,7 +230,11 @@ describe("MCP endpoint", () => {
     const text = textOf(await client.callTool({ name: "get_training_summary", arguments: {} }));
     expect(text).toContain("2026-07-28 to 2026-10-19: 5 sessions, 22900m, 1:33:23.");
     expect(text).toContain("SkiErg: 1 session, 6900m, 30:00, avg 2:10.4/500m.");
-    expect(text).toContain("week,sessions,meters,time\n2026-08-31,1,2000,7:42\n2026-10-12,4,20900,1:25:41");
+    expect(text).toContain("Per week: 0.4 sessions and 8 min of work on average; 1 of 13 weeks had 2+ sessions.");
+    expect(text).toContain("Longest gap between workouts: 40 days, 2026-09-02 to 2026-10-12.\nLast workout 1 day ago.");
+    // Empty weeks are listed so gaps show in the table too.
+    expect(text).toContain("2026-08-31,1,2000,7:42\n2026-09-07,0,0,0:00\n");
+    expect(text).toContain("2026-10-12,4,20900,1:25:41\n2026-10-19,0,0,0:00");
   });
 
   it("finds personal bests", async () => {
@@ -227,6 +249,41 @@ describe("MCP endpoint", () => {
     const result = await client.callTool({ name: "get_workout", arguments: { workout_id: 999 } });
     expect(result.isError).toBe(true);
     expect((result.content as { text: string }[])[0].text).toContain("Not found");
+  });
+
+  it("stores feedback for the signed-in user", async () => {
+    const client = await connect();
+    feedback.length = 0;
+    const result = await client.callTool({
+      name: "send_feedback",
+      arguments: { type: "missing_capability", summary: "  The user asked for rowing sessions logged by the PM5 only.  ", tool: "list_workouts" },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)).toBe("Sent to the ErgStats developer. Thanks.");
+    expect(feedback).toEqual([
+      {
+        userId: "u1",
+        report: { type: "missing_capability", summary: "The user asked for rowing sessions logged by the PM5 only.", tool: "list_workouts" },
+      },
+    ]);
+  });
+
+  it("says when feedback was not sent because of the daily limit", async () => {
+    const client = await connect();
+    feedbackFull = true;
+    try {
+      const result = await client.callTool({ name: "send_feedback", arguments: { type: "issue", summary: "get_workout returned no splits." } });
+      expect(result.isError).toBeFalsy();
+      expect(textOf(result)).toContain("Not sent");
+    } finally {
+      feedbackFull = false;
+    }
+  });
+
+  it("rejects feedback without a summary", async () => {
+    const client = await connect();
+    const result = await client.callTool({ name: "send_feedback", arguments: { type: "other", summary: "" } });
+    expect(result.isError).toBe(true);
   });
 
   it("gives 2026-07-28 clients no reason to hold a subscription stream open", async () => {

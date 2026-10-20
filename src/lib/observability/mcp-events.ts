@@ -10,14 +10,12 @@ const KEPT_ARGUMENTS = new Set([
   "machine",
   "format",
   "group_by",
-  "when",
   "segments",
   "limit",
   "page",
   "offset",
-  "days",
-  "season",
-  "year",
+  // send_feedback's report type. Its summary and tool name are the agent's own words and stay out.
+  "type",
 ]);
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

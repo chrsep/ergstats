@@ -52,6 +52,16 @@ console.log(text);
 if (result.isError || !text.includes("RowErg 2k: 7:31.4")) throw new Error("get_personal_bests did not return the fixture PB");
 const profile = await client.callTool({ name: "get_profile", arguments: {} });
 console.log((profile.content as { text: string }[])[0].text);
+const feedback = await client.callTool({
+  name: "send_feedback",
+  arguments: { type: "missing_capability", summary: "Smoke test: the user asked for something no tool covers." },
+});
+const feedbackText = (feedback.content as { text: string }[])[0]?.text ?? "";
+console.log(feedbackText);
+// After 20 runs in a day the fake account hits the feedback limit, which still means the database was reached.
+if (feedback.isError || !/^(Sent|Not sent: this account has reached)/.test(feedbackText)) {
+  throw new Error("send_feedback did not reach the feedback table");
+}
 await client.close();
 
 const bad = await fetch(`${base}/mcp`, {

@@ -9,6 +9,12 @@ describe("MCP event filters", () => {
     ).toEqual({ machine: "rower", limit: 25, range_days: 90 });
   });
 
+  it("keeps only the type of a feedback report", () => {
+    expect(
+      summarizeArguments({ type: "missing_capability", summary: "Wanted zone 2 minutes for March", tool: "get_training_summary" }),
+    ).toEqual({ type: "missing_capability" });
+  });
+
   it("drops strings that aren't enum-shaped", () => {
     expect(summarizeArguments({ machine: "rower; my name is Ada Lovelace" })).toEqual({});
   });

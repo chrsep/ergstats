@@ -62,6 +62,7 @@ const handler = createErgstatsMcpHandler({
   telemetry,
   onToolError: telemetry.toolFailed,
   verifyKey: async () => ({ ok: false, status: 401, message: "bad key" }),
+  saveFeedback: async () => true,
   async withOAuth(req, next) {
     if (req.headers.get("authorization") !== `Bearer ${TOKEN}`) return new Response(null, { status: 401 });
     return next(req, {
@@ -73,6 +74,8 @@ const handler = createErgstatsMcpHandler({
   },
   getClient: async () => new Concept2Client({ accessToken: "c2", baseUrl: "https://log.concept2.test", fetch: telemetry.fetch }),
 });
+
+const FEEDBACK_SUMMARY = "Wanted heart rate zones for my March pieces";
 
 type Captured = { event: string; distinct_id: string; properties: Record<string, unknown> };
 
@@ -92,6 +95,7 @@ beforeAll(async () => {
   await client.callTool({ name: "list_workouts", arguments: { from: "2026-01-01", to: "2026-01-31", machine: "rower", limit: 10 } });
   await client.callTool({ name: "get_workout", arguments: { workout_id: 999 } });
   await client.callTool({ name: "get_profile", arguments: {} });
+  await client.callTool({ name: "send_feedback", arguments: { type: "missing_capability", summary: FEEDBACK_SUMMARY } });
   await client.close();
   await new Promise((resolve) => setTimeout(resolve, 10));
   await posthog.flush();
@@ -104,7 +108,7 @@ afterAll(() => {
 describe("MCP telemetry", () => {
   it("records each tool call against the caller's pseudonym", () => {
     const calls = events().filter((e) => e.event === "$mcp_tool_call");
-    expect(calls.map((e) => e.properties.$mcp_tool_name)).toEqual(["list_workouts", "get_workout", "get_profile"]);
+    expect(calls.map((e) => e.properties.$mcp_tool_name)).toEqual(["list_workouts", "get_workout", "get_profile", "send_feedback"]);
     for (const call of calls) {
       expect(call.distinct_id).toBe(pseudonymFor("user-1"));
       expect(call.properties.auth_method).toBe("oauth");
@@ -147,5 +151,10 @@ describe("MCP telemetry", () => {
     expect(list?.properties.upstream_ms).toEqual(expect.any(Number));
     const missing = events().find((e) => e.properties.$mcp_tool_name === "get_workout");
     expect(missing?.properties).toMatchObject({ upstream_failures: 1, upstream_status: 404 });
+  });
+  it("counts feedback reports without what the agent wrote", () => {
+    const feedback = events().find((e) => e.properties.$mcp_tool_name === "send_feedback");
+    expect(feedback?.properties.arg_type).toBe("missing_capability");
+    expect(JSON.stringify(sent)).not.toContain(FEEDBACK_SUMMARY);
   });
 });
