@@ -230,7 +230,7 @@ export function startedAt(
     if (local) return local;
   }
   // A bare midnight with no UTC time is how date-only entries come in: there's no real end time to count back from.
-  if (r.date.endsWith(" 00:00:00")) return null;
+  if (endUtc === null && r.date.endsWith(" 00:00:00")) return null;
   const endLocal = parseAsUtc(r.date);
   if (endLocal === null) return null;
   return new Date(endLocal - duration).toISOString().replace("T", " ").slice(0, 19);
@@ -490,7 +490,8 @@ export function trainingSummary(
 
   const days = [...new Set(results.map(localDate))].sort();
   let longestGap: TrainingSummary["longestGap"] = null;
-  for (let i = 1; i < days.length; i++) {
+  // A truncated read is missing older workouts, which may hold a longer gap.
+  for (let i = 1; i < (opts.truncated ? 0 : days.length); i++) {
     const gap = daysBetween(days[i - 1], days[i]);
     if (!longestGap || gap > longestGap.days) longestGap = { days: gap, from: days[i - 1], to: days[i] };
   }

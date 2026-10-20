@@ -123,7 +123,8 @@ const zoneLabel = (z: ZoneTime) =>
       : `${Math.round(z.floor * 100)}-${percent(z.ceiling)}`;
 
 /** A few lines on heart rate from the stroke data, so agents don't have to read every stroke. */
-function effortLines(a: EffortAnalysis, maxHeartRate: number | null): string[] {
+/** `maxHeartRate` is undefined when the profile couldn't be read, null when it has none. */
+function effortLines(a: EffortAnalysis, maxHeartRate: number | null | undefined): string[] {
   const q = a.quality;
   if (!q) return ["No heart rate recorded."];
   const lines = [
@@ -143,7 +144,9 @@ function effortLines(a: EffortAnalysis, maxHeartRate: number | null): string[] {
               .filter((z) => z.seconds > 0)
               .map((z) => `${zoneLabel(z)} ${duration(z.seconds)}`),
           )}.`
-        : "No max heart rate in the Concept2 profile, so no zones.",
+        : maxHeartRate === undefined
+          ? "Couldn't read the profile's max heart rate, so no zones."
+          : "No max heart rate in the Concept2 profile, so no zones.",
     );
   }
   const d = a.decoupling;
@@ -389,7 +392,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
             ? client
                 .getMe()
                 .then((me) => me.max_heart_rate || null)
-                .catch(() => null)
+                .catch(() => undefined)
             : null;
         const [result, strokes] = await Promise.all([client.getResult(workout_id), client.getStrokes(workout_id)]);
         if (strokes.length === 0) {
@@ -425,7 +428,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           return ok(`${heading}.\n${header}.\n${table}`);
         }
         const maxHr = await maxHeartRate;
-        const effort = analyzeEffort(strokes, result.type, { maxHeartRate: maxHr, intervals: isInterval(result) });
+        const effort = analyzeEffort(strokes, result.type, { maxHeartRate: maxHr ?? null, intervals: isInterval(result) });
         const buckets = bucketStrokes(strokes, result.type, segments);
         const table = csv(
           ["to_meters", "to_time", "pace", "watts", "spm", "m_per_stroke", "hr"],
@@ -466,6 +469,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         // Nothing is logged in the future, and counting empty future weeks would drag the averages down.
         const end = to && to < today() ? to : today();
         const start = from ?? isoDaysAgo(end, 83);
+        if (start > end) return ok(`No workouts: ${start} is after today.`);
         const { results, truncated } = await client.listAllResults({ from: start, to: end, type: machine });
         const summary = trainingSummary(results, { from: start, to: end, groupBy: group_by, truncated });
         if (summary.sessions === 0) return ok(`No workouts from ${start} to ${end}.`);

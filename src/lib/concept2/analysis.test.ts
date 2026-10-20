@@ -53,6 +53,7 @@ describe("trainingSummary", () => {
     const truncated = trainingSummary(allResults, { from: "2026-08-31", to: "2026-10-20", groupBy: "week", truncated: true });
     expect(truncated.byPeriod).toHaveLength(2);
     expect(truncated.weekly).toBeNull();
+    expect(truncated.longestGap).toBeNull();
   });
 
   it("fills empty months", () => {

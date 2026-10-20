@@ -66,6 +66,18 @@ describe("analyzeEffort", () => {
     expect(analyzeEffort(row(60, hr), "rower", opts).quality).toMatchObject({ spikes: 0, stuck: null });
   });
 
+  it("doesn't count the drop in heart rate over a rest as a strap glitch", () => {
+    // Two 15 min pieces; time and distance restart for the second, and heart rate starts 25 bpm lower.
+    const first = row(15, (s) => 165 + (s % 6 < 3 ? 1 : 0));
+    const second = row(15, (s) => Math.round(140 + Math.min(25, s / 12)));
+    expect(analyzeEffort([...first, ...second], "rower", { maxHeartRate: 190, intervals: true }).quality?.spikes).toBe(0);
+  });
+
+  it("leaves out efficiency when most strokes have no pace", () => {
+    const strokes = row(30, (s) => 140 + (s % 6 < 3 ? 1 : 0)).map((s, i) => (i % 4 === 0 ? s : { ...s, p: 0 }));
+    expect(analyzeEffort(strokes, "rower", opts)).toMatchObject({ efficiency: null, decoupling: null });
+  });
+
   it("counts strap spikes and readings above max", () => {
     const a = analyzeEffort(row(30, (s) => (s > 900 && s < 904 ? 205 : 140 + (s % 6 < 3 ? 1 : 0))), "rower", opts);
     expect(a.quality?.spikes).toBe(2);

@@ -31,6 +31,8 @@ interface Sample {
   seconds: number;
   watts: number | null;
   hr: number | null;
+  /** The first stroke of an interval after the first: rest separates it from the stroke before. */
+  afterRest: boolean;
 }
 
 export interface HeartRateQuality {
@@ -78,13 +80,15 @@ export interface EffortAnalysis {
 function samples(raw: Concept2Stroke[], type: MachineType): Sample[] {
   const unit = paceUnit(type);
   let prev = 0;
-  return continuousStrokes(raw).map((s) => {
+  return continuousStrokes(raw).map((s, i) => {
     const end = s.t / 10;
     const sample = {
       end,
       seconds: Math.max(0, end - prev),
       watts: s.p > 0 ? watts(s.p, unit, type) : null,
       hr: typeof s.hr === "number" && s.hr > 0 ? s.hr : null,
+      // Stroke time and distance restart at 0 each interval.
+      afterRest: i > 0 && (raw[i].d < raw[i - 1].d || raw[i].t < raw[i - 1].t),
     };
     prev = end;
     return sample;
@@ -100,9 +104,13 @@ function quality(all: Sample[], maxHeartRate: number | null): HeartRateQuality |
   let stuck: HeartRateQuality["stuck"] = null;
   let run = 0;
   let spikes = 0;
-  // A stroke without a reading breaks the run, so readings either side of a dropout aren't compared.
+  // A stroke without a reading, or a rest, breaks the run, so readings either side aren't compared.
   let prev: number | null = null;
   for (const s of all) {
+    if (s.hr === null || s.afterRest) {
+      prev = null;
+      run = 0;
+    }
     if (s.hr === null) {
       prev = null;
       run = 0;
@@ -135,18 +143,20 @@ function zones(all: Sample[], maxHeartRate: number): ZoneTime[] {
   return out;
 }
 
-/** Time-weighted average watts and heart rate over strokes that have both. */
+/** Time-weighted average watts and heart rate over strokes that have both, or null when too few do. */
 function averages(part: Sample[]): { watts: number; hr: number } | null {
+  let total = 0;
   let seconds = 0;
   let w = 0;
   let hr = 0;
   for (const s of part) {
+    total += s.seconds;
     if (s.watts === null || s.hr === null) continue;
     seconds += s.seconds;
     w += s.watts * s.seconds;
     hr += s.hr * s.seconds;
   }
-  return seconds > 0 ? { watts: w / seconds, hr: hr / seconds } : null;
+  return seconds > 0 && seconds >= total * MIN_COVERAGE ? { watts: w / seconds, hr: hr / seconds } : null;
 }
 
 function variation(part: Sample[]): number {
