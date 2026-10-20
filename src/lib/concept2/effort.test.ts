@@ -60,6 +60,12 @@ describe("analyzeEffort", () => {
     expect(a.quality?.usable).toBe(false);
   });
 
+  it("doesn't call a jump or a run across a dropout a strap glitch", () => {
+    // 140 bpm, a 5 min dropout, then 165 bpm: a real rise, not a spike, and no single run of 140.
+    const hr = (s: number) => (s < 600 ? 140 + (s % 6 < 3 ? 1 : 0) : s < 900 ? undefined : 165 + (s % 6 < 3 ? 1 : 0));
+    expect(analyzeEffort(row(60, hr), "rower", opts).quality).toMatchObject({ spikes: 0, stuck: null });
+  });
+
   it("counts strap spikes and readings above max", () => {
     const a = analyzeEffort(row(30, (s) => (s > 900 && s < 904 ? 205 : 140 + (s % 6 < 3 ? 1 : 0))), "rower", opts);
     expect(a.quality?.spikes).toBe(2);

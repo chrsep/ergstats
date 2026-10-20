@@ -100,11 +100,18 @@ function quality(all: Sample[], maxHeartRate: number | null): HeartRateQuality |
   let stuck: HeartRateQuality["stuck"] = null;
   let run = 0;
   let spikes = 0;
-  for (let i = 0; i < withHr.length; i++) {
-    const same = i > 0 && withHr[i].hr === withHr[i - 1].hr;
-    run = same ? run + withHr[i].seconds : withHr[i].seconds;
-    if (run >= STUCK_SECONDS && run > (stuck?.seconds ?? 0)) stuck = { bpm: withHr[i].hr!, seconds: run };
-    if (i > 0 && Math.abs(withHr[i].hr! - withHr[i - 1].hr!) >= SPIKE_BPM) spikes += 1;
+  // A stroke without a reading breaks the run, so readings either side of a dropout aren't compared.
+  let prev: number | null = null;
+  for (const s of all) {
+    if (s.hr === null) {
+      prev = null;
+      run = 0;
+      continue;
+    }
+    run = s.hr === prev ? run + s.seconds : s.seconds;
+    if (run >= STUCK_SECONDS && run > (stuck?.seconds ?? 0)) stuck = { bpm: s.hr, seconds: run };
+    if (prev !== null && Math.abs(s.hr - prev) >= SPIKE_BPM) spikes += 1;
+    prev = s.hr;
   }
   const highest = Math.max(...withHr.map((s) => s.hr!));
   return {

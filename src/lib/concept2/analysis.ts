@@ -229,6 +229,8 @@ export function startedAt(
     const local = formatInZone(endUtc - duration, r.timezone);
     if (local) return local;
   }
+  // A bare midnight with no UTC time is how date-only entries come in: there's no real end time to count back from.
+  if (r.date.endsWith(" 00:00:00")) return null;
   const endLocal = parseAsUtc(r.date);
   if (endLocal === null) return null;
   return new Date(endLocal - duration).toISOString().replace("T", " ").slice(0, 19);

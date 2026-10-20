@@ -133,7 +133,7 @@ function effortLines(a: EffortAnalysis, maxHeartRate: number | null): string[] {
       !q.usable &&
       `Heart rate recorded for only ${percent(q.coverage)} of the piece, so heart rate figures are left out.`,
     q.usable && q.spikes > 0 && `${q.spikes} heart rate jumps of 20+ bpm between strokes, likely strap glitches.`,
-    q.aboveMax && `Peak ${q.aboveMax}bpm is above the profile's max heart rate of ${maxHeartRate}.`,
+    q.usable && q.aboveMax && `Peak ${q.aboveMax}bpm is above the profile's max heart rate of ${maxHeartRate}.`,
   ];
   if (q.usable) {
     lines.push(

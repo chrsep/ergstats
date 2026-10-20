@@ -85,6 +85,8 @@ describe("workoutDetail", () => {
     const fallBack = { ...steadyState, date: "2026-11-01 01:30:00", date_utc: "2026-11-01 06:30:00", time: 36000 };
     expect(workoutDetail({ ...fallBack, timezone: "America/New_York" }).startedAt).toBe("2026-11-01 01:30:00");
     expect(workoutDetail({ ...fallBack, timezone: "Not/AZone" }).startedAt).toBe("2026-11-01 00:30:00");
+    // A date-only entry comes in as midnight with no UTC time, so there is no start to work out.
+    expect(workoutDetail({ ...fallBack, date: "2013-05-10 00:00:00", date_utc: null, timezone: null }).startedAt).toBeNull();
   });
 
   it("carries every field Concept2 returns for a result", () => {
