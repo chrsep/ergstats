@@ -10,7 +10,7 @@ import { FaqList } from "@/components/marketing/faq";
 import { Container, PageGrid, h1Class, h3Class, ledeClass } from "@/components/marketing/page-layout";
 import { TOOLS } from "@/components/marketing/tool-grid";
 import { SiteFooter } from "@/components/site-footer";
-import { HeaderSignIn, SiteHeader } from "@/components/site-header";
+import { HeaderGitHub, HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { SITE_URL, guideClients, guideDetails } from "@/lib/site";
 import { cn } from "@/lib/utils";
@@ -69,7 +69,8 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
   return (
     <>
       <JsonLd data={howTo} />
-      <SiteHeader nav current="guides">
+      <SiteHeader>
+        <HeaderGitHub />
         <HeaderSignIn />
       </SiteHeader>
 

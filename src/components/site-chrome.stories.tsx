@@ -3,7 +3,7 @@ import { fn } from "storybook/test";
 
 import { Concept2SignInButton } from "./concept2-sign-in-button";
 import { SiteFooter } from "./site-footer";
-import { HeaderSignIn, SiteHeader } from "./site-header";
+import { HeaderGitHub, HeaderSignIn, SiteHeader } from "./site-header";
 import { buttonVariants } from "./ui/button";
 import { UserMenu } from "./user-menu";
 
@@ -27,7 +27,8 @@ export const HeaderSignedOut: Story = {
 
 export const HeaderPublic: Story = {
   render: () => (
-    <SiteHeader nav current="guides">
+    <SiteHeader>
+      <HeaderGitHub />
       <HeaderSignIn />
     </SiteHeader>
   ),
