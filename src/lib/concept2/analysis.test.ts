@@ -41,6 +41,7 @@ describe("trainingSummary", () => {
       "2026-10-19",
     ]);
     expect(s.byPeriod[1]).toMatchObject({ sessions: 0, meters: 0, time: "0:00.0" });
+    expect(s.emptyPeriodsListed).toBe(true);
     expect(s.weekly).toMatchObject({ weeks: 8, weeksWithTwoPlus: 1 });
     expect(s.weekly!.sessionsPerWeek).toBeCloseTo(5 / (51 / 7), 5);
     expect(s.longestGap).toEqual({ days: 40, from: "2026-09-02", to: "2026-10-12" });
@@ -50,10 +51,12 @@ describe("trainingSummary", () => {
   it("doesn't list empty periods for huge ranges or truncated reads", () => {
     const decades = trainingSummary(allResults, { from: "1990-01-01", to: "9999-12-31", groupBy: "week" });
     expect(decades.byPeriod).toHaveLength(2);
+    expect(decades.emptyPeriodsListed).toBe(false);
     const truncated = trainingSummary(allResults, { from: "2026-08-31", to: "2026-10-20", groupBy: "week", truncated: true });
     expect(truncated.byPeriod).toHaveLength(2);
     expect(truncated.weekly).toBeNull();
     expect(truncated.longestGap).toBeNull();
+    expect(truncated.emptyPeriodsListed).toBe(false);
   });
 
   it("fills empty months", () => {

@@ -430,9 +430,19 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         const maxHr = await maxHeartRate;
         const effort = analyzeEffort(strokes, result.type, { maxHeartRate: maxHr ?? null, intervals: isInterval(result) });
         const buckets = bucketStrokes(strokes, result.type, segments);
+        // Readings the strap check rejected stay out of the table too.
+        const hrOk = effort.quality?.usable !== false;
         const table = csv(
           ["to_meters", "to_time", "pace", "watts", "spm", "m_per_stroke", "hr"],
-          buckets.map((b) => [b.toMeters, b.toTime, shortPace(b.pace), b.watts, b.strokeRate, b.metersPerStroke, b.heartRateAvg]),
+          buckets.map((b) => [
+            b.toMeters,
+            b.toTime,
+            shortPace(b.pace),
+            b.watts,
+            b.strokeRate,
+            b.metersPerStroke,
+            hrOk ? b.heartRateAvg : null,
+          ]),
         );
         return ok(
           [
@@ -488,7 +498,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           summary.daysSinceLast &&
             `Last workout ${plural(summary.daysSinceLast, "day")} ${end === today() ? "ago" : `before ${end}`}.`,
           summary.longestWorkout && `Longest: ${workoutHeading(summary.longestWorkout)}.`,
-          `By ${group_by === "week" ? "week (starting Monday)" : "month"}:`,
+          `By ${group_by === "week" ? "week (starting Monday)" : "month"}${summary.emptyPeriodsListed ? "" : `, only ${group_by}s with workouts`}:`,
           csv(
             [group_by, "sessions", "meters", "time"],
             summary.byPeriod.map((p) => [p.period, p.sessions, p.meters, wholeSeconds(p.time)]),

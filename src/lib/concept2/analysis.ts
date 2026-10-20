@@ -388,6 +388,8 @@ export interface TrainingSummary {
   byMachine: MachineTotals[];
   /** Every week or month in the range, including empty ones, so gaps show. */
   byPeriod: PeriodTotals[];
+  /** False when byPeriod only has periods with workouts: no from and to, a truncated read, or too long a range. */
+  emptyPeriodsListed: boolean;
   longestWorkout: WorkoutSummary | null;
   /** Consistency over the calendar weeks (Monday start) the range touches. Null without a from and to. */
   weekly: { weeks: number; weeksWithTwoPlus: number; sessionsPerWeek: number; secondsPerWeek: number } | null;
@@ -464,10 +466,9 @@ export function trainingSummary(
   // A truncated read is missing the oldest workouts, so its weeks would look empty and its averages low.
   const range =
     !opts.truncated && opts.from && opts.to && opts.from <= opts.to ? { from: opts.from, to: opts.to } : null;
-  if (range) {
-    for (const key of periodKeys(range.from, range.to, opts.groupBy) ?? []) {
-      if (!byPeriod.has(key)) byPeriod.set(key, { sessions: 0, meters: 0, time: 0 });
-    }
+  const keys = range ? periodKeys(range.from, range.to, opts.groupBy) : null;
+  for (const key of keys ?? []) {
+    if (!byPeriod.has(key)) byPeriod.set(key, { sessions: 0, meters: 0, time: 0 });
   }
 
   let weekly: TrainingSummary["weekly"] = null;
@@ -521,6 +522,7 @@ export function trainingSummary(
         time: formatTenths(v.time),
         timeSeconds: v.time / 10,
       })),
+    emptyPeriodsListed: keys !== null,
     longestWorkout: longest ? summarizeWorkout(longest) : null,
     weekly,
     longestGap,
