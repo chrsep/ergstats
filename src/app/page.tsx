@@ -88,17 +88,16 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={structuredData} />
-      {/* A thin, see-through header: a fade over the painting on phones; from md, a fade plus
-          textured glass (header-glass in globals.css). No bottom border, so the fade ends cleanly. Solid buttons stay clear. */}
-      <SiteHeader className="dark border-b-0 bg-transparent bg-linear-to-b from-black/90 via-black/60 to-transparent text-foreground backdrop-blur-none md:from-[#0B1514] md:via-[#0B1514]/80 header-glass md:[&>div]:h-14">
-        <HeaderGitHub className="rounded-full border border-white/20 bg-[#0F1A19] text-foreground hover:bg-[#1A2826] sm:px-4" />
-        <HeaderSignIn className="rounded-full border-white/20! bg-[#0F1A19]! hover:bg-[#1A2826]!" />
+      {/* On phones the painting runs up under a black fade, with solid buttons so they stay clear. */}
+      <SiteHeader className="dark border-b-0 bg-transparent bg-linear-to-b from-black/90 via-black/60 to-transparent text-foreground max-md:backdrop-blur-none md:bg-[#0B1514] md:bg-none">
+        <HeaderGitHub className="max-md:rounded-full max-md:border max-md:border-white/20 max-md:bg-[#0F1A19] max-md:text-foreground" />
+        <HeaderSignIn className="max-md:rounded-full max-md:border-white/20! max-md:bg-[#0F1A19]! max-md:hover:bg-[#1A2826]!" />
       </SiteHeader>
 
       <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 outline-none lg:scroll-mt-18">
         {/* Always dark. On phones the painting runs edge to edge and up under the header; from md it is a
             wide card, wider than the header's content, that sits flush on the next section. */}
-        <div className="bg-[#0B1514] text-[#F2F6F5] md:-mt-14 md:pt-14">
+        <div className="bg-[#0B1514] text-[#F2F6F5]">
           <div className="mx-auto w-full max-w-[105rem] md:px-4 lg:px-6">
             <section
               aria-labelledby="hero-title"
