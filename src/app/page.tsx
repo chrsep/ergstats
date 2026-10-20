@@ -1,13 +1,12 @@
-import { CodeXmlIcon, EyeIcon, LockKeyholeIcon, StarIcon, ZapIcon } from "lucide-react";
+import { ArrowRightIcon, CodeXmlIcon, EyeIcon, LockKeyholeIcon, StarIcon, ZapIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import { GitHubIcon } from "@/components/brand/github-icon";
 import { JsonLd } from "@/components/json-ld";
-import { ChatPreview } from "@/components/marketing/chat-preview";
 import { CompareTable } from "@/components/marketing/compare-table";
 import { FaqList } from "@/components/marketing/faq";
 import { GuideCards, McpUrlBar } from "@/components/marketing/guide-cards";
+import { HorizonPainting } from "@/components/marketing/horizon-painting";
 import {
   Container,
   Eyebrow,
@@ -25,6 +24,7 @@ import { HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { mcpUrl } from "@/lib/app-url";
 import { FAQS, GITHUB_URL, SITE_DESCRIPTION, SITE_URL, guideClients, guideDetails } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -89,62 +89,48 @@ export default function HomePage() {
   return (
     <>
       <JsonLd data={structuredData} />
-      <SiteHeader nav>
+      <SiteHeader nav sectionLinks={false} className="dark border-transparent bg-[#0B1514]/80 text-foreground md:bg-[#0B1514]">
         <HeaderSignIn />
       </SiteHeader>
 
       <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 outline-none lg:scroll-mt-18">
-        <section aria-labelledby="hero-title" className="pt-10 pb-18 md:pt-18 md:pb-24 lg:pt-24 lg:pb-32">
-          <Container>
-            <PageGrid className="items-center gap-y-10 md:gap-y-16">
-              <div className="col-span-full flex flex-col items-start gap-6 lg:col-span-6">
-                <p className="inline-flex items-center gap-2 rounded-full border bg-card py-1.5 pr-3 pl-2.5 font-mono text-[0.8125rem] text-muted-foreground">
-                  <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-                  <span className="max-sm:hidden">Concept2 Logbook</span> MCP server · free · open source
-                </p>
-                <h1 id="hero-title" className={h1Class}>
-                  Ask Claude or ChatGPT about every meter you’ve rowed.
+        {/* Always dark. On phones the painting runs edge to edge and up under the header; from md it is a
+            card lined up with the header that sits flush on the next section. */}
+        <div className="bg-[#0B1514] text-[#F2F6F5]">
+          <Container className="max-md:px-0">
+            <section
+              aria-labelledby="hero-title"
+              className="relative isolate -mt-16 flex min-h-[max(40rem,100svh)] flex-col items-center overflow-hidden bg-[#050A09] px-5 pt-16 pb-6 text-center md:mt-0 md:min-h-[clamp(40rem,calc(100svh-4.5rem),56rem)] md:rounded-t-[1.75rem] md:border md:border-b-0 md:border-white/7 md:px-14 md:pt-14 md:pb-9"
+            >
+              <HorizonPainting className="absolute inset-0 -z-10 size-full object-cover object-bottom" />
+              <div className="my-auto flex max-w-235 flex-col items-center gap-5 py-10 md:gap-5.5">
+                <p className="font-mono text-xs text-[#8FD3CD] md:text-[0.8125rem]">Concept2 Logbook · MCP server</p>
+                <h1 id="hero-title" className={cn(h1Class, "leading-[1.02] lg:text-[4.5rem]")}>
+                  Ask your AI agent about every meter you’ve rowed.
                 </h1>
-                <p className={ledeClass}>
-                  Connect your Concept2 Logbook to Claude, ChatGPT, Claude Code or Codex in two minutes. Splits, PBs and training load
-                  from your RowErg, SkiErg and BikeErg, answered in plain language.
+                <p className={cn(ledeClass, "max-w-xl text-[#B7C4C2]")}>
+                  Connect your Concept2 Logbook in two minutes. Let your AI agent analyze your Logbook and help you understand your journey.
                 </p>
-                <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row">
-                  <Link href="/#guides" className={buttonVariants({ size: "xl" })}>
+                <div className="flex w-full flex-col items-center gap-2 pt-2 sm:w-auto sm:flex-row sm:gap-7">
+                  <Link
+                    href="/#guides"
+                    className={cn(buttonVariants({ size: "xl" }), "w-full rounded-full bg-[#F2F6F5] px-7 text-[#0B1514] hover:bg-white sm:w-auto")}
+                  >
                     Connect your Logbook
                   </Link>
-                  <Link href="/#ask" className={buttonVariants({ size: "xl", variant: "outline", className: "font-medium" })}>
+                  <Link href="/#ask" className="inline-flex min-h-11 items-center gap-2 font-medium transition-colors hover:text-[#8FD3CD]">
                     See what you can ask
+                    <ArrowRightIcon aria-hidden="true" className="size-4.5" />
                   </Link>
                 </div>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Works in</span>
-                    {guides.map((g) => (
-                      <Link
-                        key={g.id}
-                        href={`/connect/${g.id}`}
-                        className="inline-flex min-h-7 items-center rounded-lg border bg-card px-2.5 text-sm transition-colors hover:border-foreground/20"
-                      >
-                        {g.name}
-                      </Link>
-                    ))}
-                  </div>
-                  <a href={GITHUB_URL} className="group inline-flex items-center gap-2 text-sm text-muted-foreground">
-                    <GitHubIcon />
-                    <span>
-                      Open source under the MIT license.{" "}
-                      <span className="font-medium text-primary underline underline-offset-3 group-hover:no-underline">
-                        Star us on GitHub
-                      </span>
-                    </span>
-                  </a>
-                </div>
               </div>
-              <ChatPreview className="col-span-full lg:col-span-5 lg:col-start-8" />
-            </PageGrid>
+              <div className="flex min-h-38 w-full flex-col items-center justify-end gap-1.5 text-[0.8125rem] text-[#B7C4C2] md:min-h-30 md:flex-row md:items-end md:justify-between md:gap-8 md:text-sm">
+                <p>Works with Claude, ChatGPT, and any AI agent</p>
+                <p className="font-mono text-xs">Free · Read-only · Open source</p>
+              </div>
+            </section>
           </Container>
-        </section>
+        </div>
 
         <Section id="guides" tone="muted" aria-labelledby="guides-title">
           <PageGrid>

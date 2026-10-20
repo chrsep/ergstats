@@ -21,11 +21,14 @@ export const SITE_NAV: NavLink[] = [
 export function SiteHeader({
   children,
   nav = false,
+  sectionLinks = true,
   current,
   className,
 }: {
   children?: React.ReactNode;
   nav?: boolean;
+  /** With `nav`, whether wide screens also list SITE_NAV next to GitHub. The phone menu always does. */
+  sectionLinks?: boolean;
   /** The SITE_NAV id of the page being shown. */
   current?: string;
   className?: string;
@@ -45,16 +48,17 @@ export function SiteHeader({
         <div className="flex items-center gap-2">
           {nav && (
             <nav aria-label="Main" className="hidden items-center gap-1 md:flex">
-              {SITE_NAV.map((link) => (
-                <Link
-                  key={link.id}
-                  href={link.href}
-                  aria-current={link.id === current ? "true" : undefined}
-                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=true]:font-medium aria-[current=true]:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {sectionLinks &&
+                SITE_NAV.map((link) => (
+                  <Link
+                    key={link.id}
+                    href={link.href}
+                    aria-current={link.id === current ? "true" : undefined}
+                    className="inline-flex min-h-11 items-center rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=true]:font-medium aria-[current=true]:text-foreground"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
               <a
                 href={GITHUB_URL}
                 className="inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
