@@ -91,7 +91,7 @@ const GUIDE_DETAILS: Record<string, GuideDetails> = {
   "claude-code": {
     kind: "Terminal",
     summary: "Run `claude mcp add` with the URL, then pick ergstats in `/mcp` and sign in.",
-    askHint: "Start Claude Code in any folder and ask:",
+    askHint: "Start Claude Code in the same project, or in any folder if you added --scope user, and ask:",
     troubleshooting: [
       { question: "Claude Code says ergstats needs to sign in", answer: "Run /mcp, pick ergstats and sign in again with Concept2." },
     ],
