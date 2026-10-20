@@ -1,4 +1,4 @@
-import { CodeXmlIcon, EyeIcon, LockKeyholeIcon, StarIcon, ZapIcon } from "lucide-react";
+import { ArrowRightIcon, CodeXmlIcon, EyeIcon, LockKeyholeIcon, StarIcon, ZapIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -25,6 +25,7 @@ import { HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { mcpUrl } from "@/lib/app-url";
 import { FAQS, GITHUB_URL, SITE_DESCRIPTION, SITE_URL, guideClients, guideDetails } from "@/lib/site";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
@@ -94,55 +95,42 @@ export default function HomePage() {
       </SiteHeader>
 
       <main id="main" tabIndex={-1} className="flex-1 scroll-mt-16 outline-none lg:scroll-mt-18">
-        <section aria-labelledby="hero-title" className="pt-10 pb-18 md:pt-18 md:pb-24 lg:pt-24 lg:pb-32">
-          <Container>
-            <PageGrid className="items-center gap-y-10 md:gap-y-16">
-              <div className="col-span-full flex flex-col items-start gap-6 lg:col-span-6">
-                <p className="inline-flex items-center gap-2 rounded-full border bg-card py-1.5 pr-3 pl-2.5 font-mono text-[0.8125rem] text-muted-foreground">
-                  <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
-                  <span className="max-sm:hidden">Concept2 Logbook</span> MCP server · free · open source
-                </p>
-                <h1 id="hero-title" className={h1Class}>
-                  Ask Claude or ChatGPT about every meter you’ve rowed.
-                </h1>
-                <p className={ledeClass}>
-                  Connect your Concept2 Logbook to Claude, ChatGPT, Claude Code or Codex in two minutes. Splits, PBs and training load
-                  from your RowErg, SkiErg and BikeErg, answered in plain language.
-                </p>
-                <div className="flex w-full flex-col gap-4 sm:w-auto sm:flex-row">
-                  <Link href="/#guides" className={buttonVariants({ size: "xl" })}>
-                    Connect your Logbook
-                  </Link>
-                  <Link href="/#ask" className={buttonVariants({ size: "xl", variant: "outline", className: "font-medium" })}>
-                    See what you can ask
-                  </Link>
-                </div>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Works in</span>
-                    {guides.map((g) => (
-                      <Link
-                        key={g.id}
-                        href={`/connect/${g.id}`}
-                        className="inline-flex min-h-7 items-center rounded-lg border bg-card px-2.5 text-sm transition-colors hover:border-foreground/20"
-                      >
-                        {g.name}
-                      </Link>
-                    ))}
-                  </div>
-                  <a href={GITHUB_URL} className="group inline-flex items-center gap-2 text-sm text-muted-foreground">
-                    <GitHubIcon />
-                    <span>
-                      Open source under the MIT license.{" "}
-                      <span className="font-medium text-primary underline underline-offset-3 group-hover:no-underline">
-                        Star us on GitHub
-                      </span>
-                    </span>
-                  </a>
-                </div>
+        <section aria-labelledby="hero-title" className="relative isolate overflow-hidden pt-12 pb-18 md:pt-20 md:pb-24 lg:pt-28 lg:pb-32">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 -z-10 h-[36rem] bg-[radial-gradient(60%_60%_at_50%_0%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent)]"
+          />
+          <Container className="flex flex-col items-center gap-12 md:gap-16">
+            <div className="flex max-w-3xl flex-col items-center gap-6 text-center">
+              <a
+                href={GITHUB_URL}
+                className="group inline-flex min-h-9 items-center gap-2 rounded-full border bg-card py-1 pr-3 pl-1 text-sm shadow-xs transition-colors hover:border-foreground/20"
+              >
+                <span className="rounded-full bg-primary/10 px-2.5 py-0.5 font-medium text-primary">Free</span>
+                <span className="text-muted-foreground">Open source</span>
+                <span aria-hidden="true" className="h-4 w-px bg-border" />
+                <span className="inline-flex items-center gap-1.5 font-medium">
+                  <GitHubIcon />
+                  Star us on GitHub
+                  <ArrowRightIcon aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+                </span>
+              </a>
+              <h1 id="hero-title" className={h1Class}>
+                Ask Claude or ChatGPT about every meter you’ve rowed.
+              </h1>
+              <p className={cn(ledeClass, "max-w-xl")}>
+                Connect your Concept2 Logbook to Claude and ChatGPT in two minutes. Read-only, and nothing to install.
+              </p>
+              <div className="flex w-full flex-col gap-3 pt-2 sm:w-auto sm:flex-row sm:gap-4">
+                <Link href="/#guides" className={buttonVariants({ size: "xl" })}>
+                  Connect your Logbook
+                </Link>
+                <Link href="/#ask" className={buttonVariants({ size: "xl", variant: "outline", className: "font-medium" })}>
+                  See what you can ask
+                </Link>
               </div>
-              <ChatPreview className="col-span-full lg:col-span-5 lg:col-start-8" />
-            </PageGrid>
+            </div>
+            <ChatPreview className="w-full max-w-2xl" />
           </Container>
         </section>
 
