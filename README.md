@@ -26,6 +26,12 @@ ErgStats is its own OAuth 2.1 authorization server, like Sentry's and Linear's M
 
 `scripts/smoke-oauth.ts` runs the whole flow a client goes through, from the first 401 to a tool call, a refresh and a disconnect.
 
+## Deleting an account
+
+People delete their account from the bottom of the dashboard, after typing "delete" to confirm. Better Auth only deletes with a sign-in from the last day, so an older one signs in with Concept2 again and comes back to the open dialog. `purgeUserData` in `src/lib/account-deletion.ts` removes connected-app consents and tokens, API keys, OAuth clients the person registered and pending authorization codes; Better Auth then removes their sessions, the Concept2 link with its encrypted tokens, and the user. Concept2 has no way to revoke a token, so deleting the only copy is what ends Logbook access. Anything new that stores data per person must be erased in `purgeUserData` too. `scripts/smoke-delete-account.ts` checks afterwards that no column in the database still mentions the user.
+
+What deletion can't reach: Neon's point-in-time restore history and Vercel's runtime logs keep data until their retention windows pass, and `rate_limit` rows are keyed by IP address and path, so they can't be tied to a person.
+
 ## MCP tools
 
 All tools are read-only (`readOnlyHint`) and cover the athlete's training only. Each returns one compact text result: a few lines of prose, with lists, splits, segments and strokes as CSV under one header row. There is no `structuredContent` or `outputSchema`, because Claude Code and Codex hand the model only `structuredContent` when a result has it and ChatGPT hands it both, so a second copy only costs tokens. Concept2 failures come back as readable tool errors. `src/lib/mcp/token-budget.test.ts` holds each tool to a size budget on a realistic year of training.
@@ -96,6 +102,7 @@ pnpm test:storybook     # every story rendered in Chromium, with play functions 
 pnpm storybook          # component workshop on http://localhost:6006
 node scripts/smoke.ts         # against a running app + fake Concept2: sign in, create a key, call MCP
 node scripts/smoke-oauth.ts   # the OAuth connect flow an MCP client runs, then refresh and disconnect
+DATABASE_URL=... node scripts/smoke-delete-account.ts   # delete an account, then check nothing about it is left
 ```
 
 Set `CHROMIUM_PATH` to use an already-installed Chromium for the browser tests.
