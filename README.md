@@ -29,7 +29,7 @@ There's no password to share, no token to copy and nothing to install.
 
 ## Your data
 
-ErgStats only reads your workouts. It can't add, change or delete anything in your Logbook. You can disconnect an app at any time from your dashboard, and deleting your account erases everything ErgStats keeps about you. The [privacy policy](https://www.ergstats.com/privacy) has the details, and since all of the code is right here under the MIT license, you can check for yourself.
+ErgStats only reads your workouts. It can't add, change or delete anything in your Logbook. You can disconnect an app at any time from your dashboard, and deleting your account erases your data from ErgStats straight away (backups and hosting logs keep a copy until they expire on their own). The [privacy policy](https://www.ergstats.com/privacy) has the details, and since all of the code is right here under the MIT license, you can check for yourself.
 
 ## Questions and feedback
 
