@@ -8,6 +8,9 @@ export type KeyCheck =
   | { ok: true; authInfo: AuthInfo }
   | { ok: false; status: 401 | 429; message: string; retryAfterSeconds?: number };
 
+/** Whether a caller who signed in with OAuth may make one more request now. */
+export type QuotaCheck = { ok: true } | { ok: false; retryAfterSeconds: number };
+
 /** Runs the MCP server for a caller whose credentials have been verified. */
 export type AuthorizedHandler = (req: Request, authInfo: AuthInfo) => Promise<Response>;
 
@@ -19,6 +22,8 @@ export interface HandlerDeps extends ToolDeps {
    * call `next`, or answer 401/403 with the challenge that starts sign-in.
    */
   withOAuth: (req: Request, next: AuthorizedHandler) => Promise<Response>;
+  /** Count one request against the budget of a caller who signed in with OAuth. API keys carry their own budget. */
+  consumeQuota?: (authInfo: AuthInfo) => Promise<QuotaCheck>;
   /** Where people get a key, linked from auth errors. */
   dashboardUrl: string;
   /** RFC 9728 protected resource metadata, so a client holding a bad key can switch to signing in. */
@@ -83,7 +88,15 @@ export function createErgstatsMcpHandler(deps: HandlerDeps) {
   return async function handler(req: Request): Promise<Response> {
     const key = readApiKey(req);
     if (!key) {
-      return deps.withOAuth(req, run);
+      return deps.withOAuth(req, async (request, authInfo) => {
+        const quota = deps.consumeQuota ? await deps.consumeQuota(authInfo) : { ok: true as const };
+        if (!quota.ok) {
+          return jsonError(429, "Too many requests for this account. Slow down and try again shortly.", {
+            "retry-after": String(quota.retryAfterSeconds),
+          });
+        }
+        return run(request, authInfo);
+      });
     }
 
     const check = await deps.verifyKey(key);
