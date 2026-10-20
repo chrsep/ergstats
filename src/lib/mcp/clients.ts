@@ -21,7 +21,7 @@ export function clientSetups(mcpUrl: string): ClientSetup[] {
       name: "Claude",
       where: "Connector URL",
       steps:
-        "In Claude on the web or desktop, open Settings → Connectors, choose Add custom connector and paste this URL. Click Connect and sign in with Concept2.",
+        "In Claude on the web or desktop, open Customize → Connectors, click + Add, then Add custom connector. Name it ErgStats, paste this URL, click Continue, then Add, and sign in with Concept2.",
       code: mcpUrl,
     },
     {
@@ -29,7 +29,7 @@ export function clientSetups(mcpUrl: string): ClientSetup[] {
       name: "ChatGPT",
       where: "Connector URL",
       steps:
-        "In ChatGPT, add a custom connector under Settings → Apps (custom connectors need developer mode). Paste this URL, choose OAuth, and sign in with Concept2.",
+        "In ChatGPT, open the Plugins page, click +, then Add custom MCP server. Name it ErgStats, paste this URL, choose OAuth, confirm the warning and pick Create as a plugin. Then sign in with Concept2.",
       code: mcpUrl,
     },
     {
@@ -38,6 +38,13 @@ export function clientSetups(mcpUrl: string): ClientSetup[] {
       where: "Terminal",
       steps: "Run this once (add --scope user to use it in every project), then run /mcp in Claude Code, pick ergstats and sign in.",
       code: `claude mcp add --transport http ergstats ${mcpUrl}`,
+    },
+    {
+      id: "codex",
+      name: "Codex",
+      where: "Terminal",
+      steps: "Add the server, then run codex mcp login ergstats. Codex opens the sign-in page in your browser.",
+      code: `codex mcp add ergstats --url ${mcpUrl}\ncodex mcp login ergstats`,
     },
     {
       id: "cursor",
