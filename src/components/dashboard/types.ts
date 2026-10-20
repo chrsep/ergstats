@@ -18,3 +18,6 @@ export interface ConnectedAppRow {
   host: string | null;
   connectedAt: Date | string;
 }
+
+/** How deleting the account went. `reauthenticate`: the sign-in is too old to delete with, so sign in again first. */
+export type DeleteAccountResult = { ok: true } | { ok: false; reason: "reauthenticate" | "failed" };
