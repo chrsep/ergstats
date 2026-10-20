@@ -73,6 +73,14 @@ describe("analyzeEffort", () => {
     expect(analyzeEffort([...first, ...second], "rower", { maxHeartRate: 190, intervals: true }).quality?.spikes).toBe(0);
   });
 
+  it("still finds a stuck strap across short intervals", () => {
+    // Four 3 min pieces all logged at a flat 150 bpm.
+    const pieces = Array.from({ length: 4 }, () => row(3, () => 150)).flat();
+    const a = analyzeEffort(pieces, "rower", { maxHeartRate: 190, intervals: true });
+    expect(a.quality).toMatchObject({ usable: false, stuck: { bpm: 150 } });
+    expect(a.zones).toBeNull();
+  });
+
   it("leaves out efficiency when most strokes have no pace", () => {
     const strokes = row(30, (s) => 140 + (s % 6 < 3 ? 1 : 0)).map((s, i) => (i % 4 === 0 ? s : { ...s, p: 0 }));
     expect(analyzeEffort(strokes, "rower", opts)).toMatchObject({ efficiency: null, decoupling: null });

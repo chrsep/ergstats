@@ -104,19 +104,20 @@ function quality(all: Sample[], maxHeartRate: number | null): HeartRateQuality |
   let stuck: HeartRateQuality["stuck"] = null;
   let run = 0;
   let spikes = 0;
-  // A stroke without a reading, or a rest, breaks the run, so readings either side aren't compared.
+  // A stroke without a reading breaks both checks. A rest only breaks the spike check: heart rate
+  // drops over a rest, so the same reading either side of one still counts towards a stuck strap.
+  let runHr: number | null = null;
   let prev: number | null = null;
   for (const s of all) {
-    if (s.hr === null || s.afterRest) {
-      prev = null;
-      run = 0;
-    }
     if (s.hr === null) {
+      runHr = null;
       prev = null;
       run = 0;
       continue;
     }
-    run = s.hr === prev ? run + s.seconds : s.seconds;
+    if (s.afterRest) prev = null;
+    run = s.hr === runHr ? run + s.seconds : s.seconds;
+    runHr = s.hr;
     if (run >= STUCK_SECONDS && run > (stuck?.seconds ?? 0)) stuck = { bpm: s.hr, seconds: run };
     if (prev !== null && Math.abs(s.hr - prev) >= SPIKE_BPM) spikes += 1;
     prev = s.hr;
