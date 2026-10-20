@@ -63,7 +63,7 @@ export function ApiKeysPanel({ initialKeys, mcpUrl }: { initialKeys: ApiKeyRow[]
                 ? "Your new key is already in these snippets. Paste one into your client."
                 : "Replace YOUR_API_KEY with one of your keys."}
             </p>
-            <ConnectInstructions setups={apiKeySetups(mcpUrl, freshKey)} />
+            <ConnectInstructions setups={apiKeySetups(mcpUrl, freshKey)} auth="api_key" />
           </div>
         ) : null}
       </CardContent>

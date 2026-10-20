@@ -33,6 +33,9 @@ export function SiteFooter() {
             <Link href="/#faq" className={linkClass}>
               FAQ
             </Link>
+            <Link href="/privacy" className={linkClass}>
+              Privacy
+            </Link>
             <Link href="/dashboard" className={linkClass}>
               Sign in
             </Link>

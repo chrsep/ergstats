@@ -28,6 +28,14 @@ const nextConfig: NextConfig = {
   headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
+  // PostHog's browser SDK posts to paths ending in a slash (/e/, /i/v0/e/).
+  // Next.js would answer each with a redirect, costing every analytics batch
+  // a round trip, so the usual trailing-slash redirect is kept for every path
+  // except the analytics relay.
+  skipTrailingSlashRedirect: true,
+  redirects() {
+    return [{ source: "/:path((?!pulse/).+)/", destination: "/:path", permanent: true }];
+  },
 };
 
 export default nextConfig;

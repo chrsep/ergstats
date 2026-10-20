@@ -30,6 +30,8 @@ export interface ToolDeps {
   getClient: (authInfo: AuthInfo | undefined) => Promise<Concept2Client>;
   /** Today's date as YYYY-MM-DD. Injected so tests are deterministic. */
   today?: () => string;
+  /** Told about every failed tool call, for error tracking. Without it, unexpected failures are logged to the console. */
+  onToolError?: (error: unknown) => void;
   /** Store a send_feedback report from the caller. Resolves false when they hit the daily limit. */
   saveFeedback: (authInfo: AuthInfo | undefined, feedback: AgentFeedback) => Promise<boolean>;
 }
@@ -83,14 +85,15 @@ function ok(text: string): CallToolResult {
   return { content: [{ type: "text", text }] };
 }
 
-function fail(error: unknown): CallToolResult {
+function fail(error: unknown, onError?: (error: unknown) => void): CallToolResult {
   const message =
     error instanceof Concept2Error
       ? error.message
       : error instanceof Error && error.name === "NotConnectedError"
         ? error.message
         : "Something went wrong reading your Concept2 Logbook. Try again in a moment, and if it keeps failing, report it with send_feedback.";
-  if (!(error instanceof Concept2Error)) console.error("[mcp] tool failed", error);
+  if (onError) onError(error);
+  else if (!(error instanceof Concept2Error)) console.error("[mcp] tool failed", error);
   return { content: [{ type: "text", text: message }], isError: true };
 }
 
@@ -250,7 +253,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           ])}.`,
         );
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -304,7 +307,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         );
         return ok(`${header}.\n${table}`);
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -368,7 +371,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter(Boolean).join("\n"));
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -464,7 +467,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           ].join("\n"),
         );
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -518,7 +521,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter(Boolean).join("\n"));
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -553,7 +556,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter(Boolean).join("\n"));
       } catch (error) {
-        return fail(error);
+        return fail(error, deps.onToolError);
       }
     },
   );
@@ -580,7 +583,8 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         const saved = await deps.saveFeedback(ctx.http?.authInfo, { type, summary, tool: tool || undefined });
         return ok(saved ? "Sent to the ErgStats developer. Thanks." : "Not sent: this account has reached today's feedback limit.");
       } catch (error) {
-        console.error("[mcp] saving feedback failed", error);
+        if (deps.onToolError) deps.onToolError(error);
+        else console.error("[mcp] saving feedback failed", error);
         return { content: [{ type: "text", text: "Couldn't send feedback right now." }], isError: true };
       }
     },

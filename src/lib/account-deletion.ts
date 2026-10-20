@@ -3,6 +3,7 @@ import { eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { agentFeedback } from "@/db/app-schema";
 import { apikey, oauthAccessToken, oauthClient, oauthConsent, oauthRefreshToken, verification } from "@/db/schema";
+import { erasePosthogPerson } from "@/lib/observability/erase";
 
 /**
  * Everything ErgStats keeps about a person that Better Auth's own user deletion
@@ -35,4 +36,6 @@ export async function purgeUserData(userId: string): Promise<void> {
   await db.delete(verification).where(sql`position(${userId} in ${verification.value}) > 0`);
   // The foreign key cascades too; deleting here keeps this list complete.
   await db.delete(agentFeedback).where(eq(agentFeedback.userId, userId));
+  // Their PostHog profile and server-side events. Best effort: it never blocks the deletion.
+  await erasePosthogPerson(userId);
 }
