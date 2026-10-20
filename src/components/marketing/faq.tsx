@@ -12,7 +12,7 @@ export function FaqList({ faqs, openFirst = false, className }: { faqs: Faq[]; o
     <div className={cn("flex flex-col border-t", className)}>
       {faqs.map((faq, i) => (
         <details key={faq.question} open={openFirst && i === 0} className="group border-b">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-6 py-5 text-[1.0625rem] leading-snug font-semibold outline-none focus-visible:text-primary md:py-6 md:text-lg [&::-webkit-details-marker]:hidden">
+          <summary className="flex min-h-11 cursor-pointer list-none rounded-lg items-center justify-between gap-6 py-5 text-[1.0625rem] leading-snug font-semibold outline-none focus-visible:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 md:py-6 md:text-lg [&::-webkit-details-marker]:hidden">
             {faq.question}
             <span
               aria-hidden="true"

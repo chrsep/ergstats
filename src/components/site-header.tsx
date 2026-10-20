@@ -49,8 +49,8 @@ export function SiteHeader({
                 <Link
                   key={link.id}
                   href={link.href}
-                  aria-current={link.id === current ? "page" : undefined}
-                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=page]:font-medium aria-[current=page]:text-foreground"
+                  aria-current={link.id === current ? "true" : undefined}
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-[0.9375rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground aria-[current=true]:font-medium aria-[current=true]:text-foreground"
                 >
                   {link.label}
                 </Link>

@@ -61,7 +61,7 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
         <HeaderSignIn />
       </SiteHeader>
 
-      <main id="main" className="flex-1 pt-8 pb-18 md:pt-12 md:pb-24 lg:pb-32">
+      <main id="main" tabIndex={-1} className="flex-1 pt-8 outline-none pb-18 md:pt-12 md:pb-24 lg:pb-32">
         <Container>
           <PageGrid className="items-start">
             <nav aria-label="Breadcrumb" className="col-span-full">

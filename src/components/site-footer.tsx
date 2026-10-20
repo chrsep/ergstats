@@ -42,7 +42,12 @@ export function SiteFooter() {
           </nav>
         </PageGrid>
         <div className="mt-8 flex flex-wrap justify-between gap-x-6 gap-y-2 border-t pt-6 text-sm text-muted-foreground md:mt-12">
-          <p>© 2026 ErgStats · MIT license</p>
+          <p>
+            © 2026 ErgStats ·{" "}
+            <a href={`${GITHUB_URL}/blob/main/LICENSE`} className="underline-offset-3 hover:text-foreground hover:underline">
+              MIT license
+            </a>
+          </p>
           <p>Not affiliated with or endorsed by Concept2.</p>
         </div>
       </Container>

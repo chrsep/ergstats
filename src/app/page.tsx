@@ -93,7 +93,7 @@ export default function HomePage() {
         <HeaderSignIn />
       </SiteHeader>
 
-      <main id="main" className="flex-1">
+      <main id="main" tabIndex={-1} className="flex-1 outline-none">
         <section aria-labelledby="hero-title" className="pt-10 pb-18 md:pt-18 md:pb-24 lg:pt-24 lg:pb-32">
           <Container>
             <PageGrid className="items-center gap-y-10 md:gap-y-16">
@@ -158,6 +158,14 @@ export default function HomePage() {
           <PageGrid>
             <GuideCards guides={guides} />
             <McpUrlBar url={mcpUrl()} />
+            <p className="col-span-full text-sm text-pretty text-muted-foreground">
+              Using another MCP client? Any client that supports sign-in works with the same URL. Clients that can’t sign in can use an API
+              key from your{" "}
+              <Link href="/dashboard" className="font-medium text-primary underline underline-offset-3 hover:no-underline">
+                dashboard
+              </Link>
+              .
+            </p>
           </PageGrid>
         </Section>
 
