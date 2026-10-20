@@ -10,11 +10,14 @@ import { cn } from "@/lib/utils";
 export function CopyButton({
   value,
   label = "Copy",
+  labelled = false,
   className,
   onCopy,
 }: {
   value: string;
   label?: string;
+  /** Show a "Copy" text button sized for touch instead of an icon with a tooltip. */
+  labelled?: boolean;
   className?: string;
   onCopy?: () => void;
 }) {
@@ -26,6 +29,21 @@ export function CopyButton({
     return () => clearTimeout(timer);
   }, [copied]);
 
+  const copy = async () => {
+    await navigator.clipboard.writeText(value);
+    setCopied(true);
+    onCopy?.();
+  };
+
+  if (labelled) {
+    return (
+      <Button variant="outline" size="touch" className={className} aria-label={copied ? "Copied" : label} onClick={copy}>
+        {copied ? <CheckIcon /> : <CopyIcon />}
+        {copied ? "Copied" : "Copy"}
+      </Button>
+    );
+  }
+
   return (
     <Tooltip>
       <TooltipTrigger
@@ -35,11 +53,7 @@ export function CopyButton({
             size="icon-sm"
             className={cn("text-muted-foreground", className)}
             aria-label={copied ? "Copied" : label}
-            onClick={async () => {
-              await navigator.clipboard.writeText(value);
-              setCopied(true);
-              onCopy?.();
-            }}
+            onClick={copy}
           />
         }
       >

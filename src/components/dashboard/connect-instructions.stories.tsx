@@ -27,7 +27,7 @@ export const SwitchesClients: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("tab", { name: "ChatGPT" }));
-    await expect(canvas.getByText(/custom connector/)).toBeVisible();
+    await expect(canvas.getByText(/Add custom MCP server/)).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "Cursor" }));
     await expect(canvas.getByText("~/.cursor/mcp.json")).toBeVisible();
     await userEvent.click(canvas.getByRole("tab", { name: "VS Code" }));

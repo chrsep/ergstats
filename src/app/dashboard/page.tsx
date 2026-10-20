@@ -78,7 +78,7 @@ export default function DashboardPage() {
           <HeaderUser />
         </Suspense>
       </SiteHeader>
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6">
+      <main id="main" className="mx-auto w-full max-w-4xl flex-1 px-4 py-10 sm:px-6">
         <div className="mb-8 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">Connect ErgStats to your agent and manage what can read your logbook.</p>
