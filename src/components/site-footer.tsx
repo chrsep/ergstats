@@ -40,7 +40,7 @@ export function SiteFooter() {
               Sign in
             </Link>
             <a href={GITHUB_URL} className={linkClass}>
-              Source code on GitHub
+              Star us on GitHub
             </a>
           </nav>
         </PageGrid>
