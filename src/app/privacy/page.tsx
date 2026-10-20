@@ -146,19 +146,11 @@ export default function PrivacyPage() {
                 . Access stops immediately.
               </li>
               <li>
-                Delete your account from the bottom of your{" "}
-                <Link href="/dashboard" className="text-foreground underline underline-offset-4">
-                  dashboard
-                </Link>
-                . That erases your account, sessions, API keys, connected apps and Concept2 tokens straight away. Database backups
-                and hosting logs keep a copy until they expire on their own schedule.
-              </li>
-              <li>
-                Ask for a copy of your data, or for anything else to be deleted, by emailing{" "}
+                Ask for a copy of your data, or for your account and analytics to be deleted, by emailing{" "}
                 <a href={`mailto:${CONTACT}`} className="text-foreground underline underline-offset-4">
                   {CONTACT}
                 </a>
-                .
+                . Database backups and hosting logs keep a copy until they expire on their own schedule.
               </li>
             </ul>
             <p>
