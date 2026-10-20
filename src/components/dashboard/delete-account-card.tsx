@@ -77,12 +77,18 @@ export function DeleteAccountCard({
       <CardHeader>
         <CardTitle>Delete account</CardTitle>
         <CardDescription>
-          Permanently delete your ErgStats account and everything ErgStats stores about you. Your Concept2 Logbook isn&apos;t
-          affected.
+          Permanently delete your ErgStats account and all of its data. Your Concept2 Logbook isn&apos;t affected.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <AlertDialog open={open} onOpenChange={setOpen} onOpenChangeComplete={handleOpenChangeComplete}>
+        <AlertDialog
+          open={open}
+          // Escape still closes an alert dialog; keep it open while deleting so the outcome stays visible.
+          onOpenChange={(next) => {
+            if (next || !pending) setOpen(next);
+          }}
+          onOpenChangeComplete={handleOpenChangeComplete}
+        >
           <AlertDialogTrigger
             render={
               <Button variant="destructive">
