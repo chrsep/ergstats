@@ -9,9 +9,17 @@ export interface ClientSetup {
   where: string;
   steps: string;
   code: string;
+  /** A link that opens the client's add dialog with ErgStats filled in, for clients that have one. */
+  oneClick?: { url: string; steps: string };
 }
 
 const json = (value: unknown) => JSON.stringify(value, null, 2);
+
+/** Opens Claude's Add custom connector dialog on claude.ai with ErgStats filled in. Connectors sync to Claude Desktop and mobile. */
+export function claudeConnectorUrl(mcpUrl: string): string {
+  const params = new URLSearchParams({ modal: "add-custom-connector", connectorName: "ErgStats", connectorUrl: mcpUrl });
+  return `https://claude.ai/customize/connectors?${params}`;
+}
 
 /** The default: clients add the URL and the person signs in with Concept2, no key to copy. */
 export function clientSetups(mcpUrl: string): ClientSetup[] {
@@ -23,6 +31,10 @@ export function clientSetups(mcpUrl: string): ClientSetup[] {
       steps:
         "In Claude on the web or desktop, open Customize → Connectors, click + Add, then Add custom connector. Name it ErgStats, paste this URL, click Continue, then Add, and sign in with Concept2.",
       code: mcpUrl,
+      oneClick: {
+        url: claudeConnectorUrl(mcpUrl),
+        steps: "Click Add to Claude. Claude opens its Add custom connector dialog with ErgStats filled in: click Continue, then Add, and sign in with Concept2.",
+      },
     },
     {
       id: "chatgpt",
