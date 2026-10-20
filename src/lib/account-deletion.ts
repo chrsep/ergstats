@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
+import { agentFeedback } from "@/db/app-schema";
 import { apikey, oauthAccessToken, oauthClient, oauthConsent, oauthRefreshToken, verification } from "@/db/schema";
 
 /**
@@ -32,4 +33,6 @@ export async function purgeUserData(userId: string): Promise<void> {
   // Pending authorization codes and similar short-lived records name the user
   // inside a JSON value. User ids are long random strings, so a substring match is exact enough.
   await db.delete(verification).where(sql`position(${userId} in ${verification.value}) > 0`);
+  // The foreign key cascades too; deleting here keeps this list complete.
+  await db.delete(agentFeedback).where(eq(agentFeedback.userId, userId));
 }
