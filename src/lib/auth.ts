@@ -10,6 +10,7 @@ import { genericOAuth, jwt } from "better-auth/plugins";
 
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { purgeUserData } from "@/lib/account-deletion";
 import { appUrl, mcpUrl } from "@/lib/app-url";
 import { CONCEPT2_SCOPES, concept2BaseUrl, Concept2Client } from "@/lib/concept2/client";
 import { MCP_SCOPE } from "@/lib/mcp/scopes";
@@ -115,6 +116,15 @@ export const auth = betterAuth({
   account: {
     // Concept2 access and refresh tokens are encrypted at rest with BETTER_AUTH_SECRET.
     encryptOAuthTokens: true,
+  },
+  user: {
+    // People can delete their account from the dashboard. Better Auth requires
+    // a sign-in from the last day (session.freshAge) and removes the user,
+    // sessions and Concept2 link; purgeUserData removes everything else first.
+    deleteUser: {
+      enabled: true,
+      beforeDelete: (user) => purgeUserData(user.id),
+    },
   },
   plugins: [
     // Concept2 is the only way in: signing in also grants read access to the Logbook.

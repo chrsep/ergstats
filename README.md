@@ -26,6 +26,12 @@ ErgStats is its own OAuth 2.1 authorization server, like Sentry's and Linear's M
 
 `scripts/smoke-oauth.ts` runs the whole flow a client goes through, from the first 401 to a tool call, a refresh and a disconnect.
 
+## Deleting an account
+
+People delete their account from the bottom of the dashboard, after typing "delete" to confirm. Better Auth only deletes with a sign-in from the last day, so an older one signs in with Concept2 again and comes back to the open dialog. `purgeUserData` in `src/lib/account-deletion.ts` removes connected-app consents and tokens, API keys, OAuth clients the person registered, pending authorization codes and their PostHog person and events; Better Auth then removes their sessions, the Concept2 link with its encrypted tokens, and the user. Concept2 has no way to revoke a token, so deleting the only copy is what ends Logbook access. Anything new that stores data per person must be erased in `purgeUserData` too. `scripts/smoke-delete-account.ts` checks afterwards that no column in the database still mentions the user.
+
+What deletion can't reach: Neon's point-in-time restore history and Vercel's runtime logs keep data until their retention windows pass, and `rate_limit` rows are keyed by IP address and path, so they can't be tied to a person.
+
 ## MCP tools
 
 All tools are read-only (`readOnlyHint`) and cover the athlete's training only. Each returns one compact text result: a few lines of prose, with lists, splits, segments and strokes as CSV under one header row. There is no `structuredContent` or `outputSchema`, because Claude Code and Codex hand the model only `structuredContent` when a result has it and ChatGPT hands it both, so a second copy only costs tokens. Concept2 failures come back as readable tool errors. `src/lib/mcp/token-budget.test.ts` holds each tool to a size budget on a realistic year of training.
@@ -97,6 +103,7 @@ pnpm test:storybook     # every story rendered in Chromium, with play functions 
 pnpm storybook          # component workshop on http://localhost:6006
 node scripts/smoke.ts         # against a running app + fake Concept2: sign in, create a key, call MCP
 node scripts/smoke-oauth.ts   # the OAuth connect flow an MCP client runs, then refresh and disconnect
+DATABASE_URL=... node scripts/smoke-delete-account.ts   # delete an account, then check nothing about it is left
 ```
 
 Set `CHROMIUM_PATH` to use an already-installed Chromium for the browser tests.
@@ -126,10 +133,10 @@ PostHog (EU Cloud) is off until `NEXT_PUBLIC_POSTHOG_TOKEN` is set. It is set up
 - **Web analytics** (`src/lib/observability/browser.ts`): pageviews, web vitals and uncaught browser errors, in cookieless mode, so nothing is stored in the browser and visitors are counted with a daily-rotating server-side hash. No session replay, autocapture, heatmaps or surveys, and remote config is off so none can be switched on from PostHog. Do Not Track, Global Privacy Control and the switch on `/privacy` turn it off; there is no cookie banner because nothing needs consent. Query strings are stripped from URLs except `utm_*` and `ref`.
 - **Relay** (`src/app/pulse`): the browser talks only to our origin. The relay forwards the event body, user agent and IP (for the cookieless hash), never cookies, and adds the visitor's country from Vercel's edge header, since cookieless events get no GeoIP lookup.
 - **MCP usage** (`src/lib/observability/mcp.ts`): every tool call, through PostHog's MCP analytics SDK, with the tool, client, sign-in method, latency, Concept2 calls, response size and a failure category. Tool arguments are reduced to enums and counts; dates, workout ids and responses are dropped. Requests turned away before sign-in are counted too.
-- **Product events**: sign-up, sign-in, app connected or disconnected, API key created or deleted, setup snippet copied.
+- **Product events**: sign-up, sign-in, app connected or disconnected, API key created or deleted, setup snippet copied, account deleted (anonymous).
 - **Errors, traces and logs**: server errors from `src/instrumentation.ts` and unexpected tool failures go to error tracking (expected ones, like Concept2 being down, are categorized on the tool call event and logged); tool calls and their Concept2 requests are traced; `log` from `src/lib/observability/logger.ts` writes to the console and PostHog Logs.
 
-Server events identify people by `u_` plus an HMAC of their user id keyed with `BETTER_AUTH_SECRET`, never by email or name. To erase someone's analytics, compute `pseudonymFor(userId)` and delete that person in PostHog. Rotating `BETTER_AUTH_SECRET` starts everyone over with new ids.
+Server events identify people by `u_` plus an HMAC of their user id keyed with `BETTER_AUTH_SECRET`, never by email or name. Deleting an account also deletes that person and their events in PostHog (`src/lib/observability/erase.ts`) when `POSTHOG_PERSONAL_API_KEY` and `POSTHOG_PROJECT_ID` are set; it never blocks the deletion if PostHog is unreachable. Rotating `BETTER_AUTH_SECRET` starts everyone over with new ids.
 
 ## Deployment
 
@@ -143,5 +150,6 @@ Production runs on Vercel with the Neon integration. The Neon database is in `aw
 | `CONCEPT2_CLIENT_ID` / `CONCEPT2_CLIENT_SECRET` | From the Concept2 app registration |
 | `NEXT_PUBLIC_POSTHOG_TOKEN` | PostHog project token (`phc_...`), optional |
 | `NEXT_PUBLIC_POSTHOG_REGION` | `us` only if the PostHog project is in US Cloud; EU by default |
+| `POSTHOG_PERSONAL_API_KEY` / `POSTHOG_PROJECT_ID` | PostHog personal API key with `person:write`, and the project id, so account deletion erases analytics; optional |
 
 Register the Concept2 app at <https://log.concept2.com/developers/keys> with the redirect URI `https://www.ergstats.com/api/auth/callback/concept2`. Read-only apps can use the production Logbook straight away.

@@ -6,6 +6,7 @@ import { ApiKeysPanel } from "@/components/dashboard/api-keys-panel";
 import { Concept2AccountCard } from "@/components/dashboard/concept2-account-card";
 import { ConnectInstructions } from "@/components/dashboard/connect-instructions";
 import { ConnectedAppsPanel } from "@/components/dashboard/connected-apps-panel";
+import { DeleteAccountPanel } from "@/components/dashboard/delete-account-panel";
 import type { ApiKeyRow } from "@/components/dashboard/types";
 import { SiteHeader } from "@/components/site-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,11 +25,12 @@ async function HeaderUser() {
   return <SignedInUserMenu name={user.name} email={user.email} image={user.image} />;
 }
 
-async function DashboardContent() {
+async function DashboardContent({ searchParams }: { searchParams: PageProps<"/dashboard">["searchParams"] }) {
   const { user } = await requireSession();
-  const [{ apiKeys }, apps] = await Promise.all([
+  const [{ apiKeys }, apps, { delete: deleteParam }] = await Promise.all([
     auth.api.listApiKeys({ headers: await headers() }),
     listConnectedApps(user.id),
+    searchParams,
   ]);
   const keys: ApiKeyRow[] = apiKeys
     .map((k) => ({
@@ -55,6 +57,8 @@ async function DashboardContent() {
       <ConnectedAppsPanel initialApps={apps} />
       <ApiKeysPanel initialKeys={keys} mcpUrl={mcpUrl()} />
       <Concept2AccountCard name={user.name} email={user.email} image={user.image} />
+      {/* Signing in again to delete lands back here with ?delete=confirm. */}
+      <DeleteAccountPanel confirming={deleteParam === "confirm"} />
     </div>
   );
 }
@@ -66,11 +70,12 @@ function DashboardSkeleton() {
       <Skeleton className="h-40 rounded-xl" />
       <Skeleton className="h-56 rounded-xl" />
       <Skeleton className="h-32 rounded-xl" />
+      <Skeleton className="h-32 rounded-xl" />
     </div>
   );
 }
 
-export default function DashboardPage() {
+export default function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   return (
     <>
       <SiteHeader>
@@ -84,7 +89,7 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Connect ErgStats to your agent and manage what can read your logbook.</p>
         </div>
         <Suspense fallback={<DashboardSkeleton />}>
-          <DashboardContent />
+          <DashboardContent searchParams={searchParams} />
         </Suspense>
       </main>
     </>
