@@ -1,14 +1,16 @@
 import { requireMcpAuth } from "@better-auth/mcp";
 import type { AuthInfo } from "@modelcontextprotocol/server";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq, gt } from "drizzle-orm";
 
 import { db } from "@/db";
+import { agentFeedback } from "@/db/app-schema";
 import { account, oauthConsent } from "@/db/schema";
 import { appUrl, mcpUrl, resourceMetadataUrl } from "@/lib/app-url";
 import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
-import { type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck } from "./handler";
+import { API_KEY_PREFIX, type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck } from "./handler";
 import { MCP_SCOPE } from "./scopes";
+import type { AgentFeedback } from "./tools";
 
 class NotConnectedError extends Error {
   name = "NotConnectedError";
@@ -119,10 +121,47 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
   return new Concept2Client({ accessToken });
 }
 
+/** Reports one account may send a day, so a looping agent can't flood the table. */
+const FEEDBACK_PER_DAY = 20;
+
+/** Which app is calling: the host of its Client ID Metadata Document, "registered" for dynamic registration, or "api_key". */
+function clientLabel(authInfo: AuthInfo): string | null {
+  if (authInfo.token.startsWith(API_KEY_PREFIX)) return "api_key";
+  if (!authInfo.clientId) return null;
+  if (!authInfo.clientId.startsWith("https://")) return "registered";
+  try {
+    return new URL(authInfo.clientId).host;
+  } catch {
+    return "registered";
+  }
+}
+
+async function saveFeedback(authInfo: AuthInfo | undefined, feedback: AgentFeedback): Promise<boolean> {
+  const userId = authInfo?.extra?.userId;
+  if (!authInfo || typeof userId !== "string") throw new Error("Missing credentials.");
+
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const [{ sent }] = await db
+    .select({ sent: count() })
+    .from(agentFeedback)
+    .where(and(eq(agentFeedback.userId, userId), gt(agentFeedback.createdAt, since)));
+  if (sent >= FEEDBACK_PER_DAY) return false;
+
+  await db.insert(agentFeedback).values({
+    userId,
+    type: feedback.type,
+    summary: feedback.summary,
+    tool: feedback.tool ?? null,
+    client: clientLabel(authInfo),
+  });
+  return true;
+}
+
 export const mcpHandler = createErgstatsMcpHandler({
   verifyKey,
   withOAuth,
   getClient,
+  saveFeedback,
   dashboardUrl: `${appUrl()}/dashboard`,
   resourceMetadataUrl: resourceMetadataUrl(),
 });

@@ -80,6 +80,9 @@ const handler = createErgstatsMcpHandler({
   async getClient() {
     return new Concept2Client({ accessToken: "t", baseUrl: "https://c2.test", fetch: fakeConcept2 as typeof fetch });
   },
+  async saveFeedback() {
+    return true;
+  },
 });
 
 async function connect() {
@@ -127,6 +130,7 @@ const calls: [label: string, tool: string, args: Record<string, unknown>, budget
   ["get_training_summary (a year by month)", "get_training_summary", { from: "2025-10-20", group_by: "month" }, 1_000],
   ["get_personal_bests (defaults)", "get_personal_bests", {}, 400],
   ["get_profile", "get_profile", {}, 150],
+  ["send_feedback", "send_feedback", { type: "missing_capability", summary: "No tool reports heart rate drift." }, 100],
 ];
 
 describe("token budget", () => {
@@ -138,8 +142,9 @@ describe("token budget", () => {
     const full = JSON.stringify(tools);
     const instructions = client.getInstructions() ?? "";
     report["tools/list"] = { definitions, full, instructions };
-    expect(definitions.length).toBeLessThan(4_800);
-    expect(full.length).toBeLessThan(6_000);
+    // send_feedback is about 800 of these characters.
+    expect(definitions.length).toBeLessThan(5_000);
+    expect(full.length).toBeLessThan(6_500);
     // Claude Code keeps only the first 4,096 characters.
     expect(instructions.length).toBeLessThan(1_000);
     await client.close();

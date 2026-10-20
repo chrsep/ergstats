@@ -52,6 +52,12 @@ console.log(text);
 if (result.isError || !text.includes("RowErg 2k: 7:31.4")) throw new Error("get_personal_bests did not return the fixture PB");
 const profile = await client.callTool({ name: "get_profile", arguments: {} });
 console.log((profile.content as { text: string }[])[0].text);
+const feedback = await client.callTool({
+  name: "send_feedback",
+  arguments: { type: "missing_capability", summary: "Smoke test: the user asked for something no tool covers." },
+});
+console.log((feedback.content as { text: string }[])[0].text);
+if (feedback.isError) throw new Error("send_feedback failed");
 await client.close();
 
 const bad = await fetch(`${base}/mcp`, {
