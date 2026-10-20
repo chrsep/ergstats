@@ -3,16 +3,19 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { AddToClientButton } from "@/components/add-to-client-button";
 import { CodeBlock } from "@/components/code-block";
 import { JsonLd } from "@/components/json-ld";
 import { FaqList } from "@/components/marketing/faq";
 import { Container, PageGrid, h1Class, h3Class, ledeClass } from "@/components/marketing/page-layout";
 import { TOOLS } from "@/components/marketing/tool-grid";
 import { SiteFooter } from "@/components/site-footer";
-import { HeaderSignIn, SiteHeader } from "@/components/site-header";
+import { HeaderGitHub, HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { SITE_URL, guideClients, guideDetails } from "@/lib/site";
 import { cn } from "@/lib/utils";
+
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
 export function generateStaticParams() {
   return guideClients().map((c) => ({ client: c.id }));
@@ -37,7 +40,10 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
   const details = guideDetails(setup.id, setup.name);
   const others = guideClients().filter((c) => c.id !== setup.id);
   const steps = [
-    { name: `Add ErgStats to ${setup.name}`, text: setup.steps },
+    {
+      name: `Add ErgStats to ${setup.name}`,
+      text: setup.oneClick ? `${setup.oneClick.steps} Or add it by hand: ${lowerFirst(setup.steps)}` : setup.steps,
+    },
     {
       name: "Sign in with Concept2",
       text: `${setup.name} opens ErgStats in your browser. Sign in with your Concept2 Logbook account and approve read-only access. ErgStats never sees your password and can’t add, change or delete anything.`,
@@ -63,7 +69,8 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
   return (
     <>
       <JsonLd data={howTo} />
-      <SiteHeader nav current="guides">
+      <SiteHeader>
+        <HeaderGitHub />
         <HeaderSignIn />
       </SiteHeader>
 
@@ -127,6 +134,13 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
                     </span>
                     <div className="flex min-w-0 flex-col gap-4 pt-1 md:pt-2">
                       <h2 className={h3Class}>{step.name}</h2>
+                      {i === 0 && setup.oneClick && (
+                        <>
+                          <p className="text-pretty text-muted-foreground">{setup.oneClick.steps}</p>
+                          <AddToClientButton href={setup.oneClick.url} client={setup.id} name={setup.name} source="guide" size="xl" className="self-start" />
+                          <h3 className="mt-4 font-semibold">Or add it by hand</h3>
+                        </>
+                      )}
                       {i === 0 && details.menuPath && (
                         <ol aria-label="Menu path" className="flex flex-wrap items-center gap-2">
                           {details.menuPath.map((item, j, path) => (
@@ -137,7 +151,7 @@ export default async function ConnectGuidePage({ params }: PageProps<"/connect/[
                           ))}
                         </ol>
                       )}
-                      <p className="text-pretty text-muted-foreground">{step.text}</p>
+                      <p className="text-pretty text-muted-foreground">{i === 0 ? setup.steps : step.text}</p>
                       {i === 0 && <CodeBlock title={setup.where} code={setup.code} className="rounded-xl" />}
                       {i === 2 && (
                         <ul className="grid gap-4 md:grid-cols-2">

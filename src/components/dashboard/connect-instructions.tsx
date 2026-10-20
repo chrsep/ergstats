@@ -1,5 +1,6 @@
 "use client";
 
+import { AddToClientButton } from "@/components/add-to-client-button";
 import { CodeBlock } from "@/components/code-block";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ClientSetup } from "@/lib/mcp/clients";
@@ -18,6 +19,13 @@ export function ConnectInstructions({ setups, auth = "oauth" }: { setups: Client
       </TabsList>
       {setups.map((s) => (
         <TabsContent key={s.id} value={s.id} className="flex flex-col gap-3">
+          {s.oneClick && (
+            <>
+              <p className="text-sm text-muted-foreground">{s.oneClick.steps}</p>
+              <AddToClientButton href={s.oneClick.url} client={s.id} name={s.name} source="dashboard" className="self-start" />
+              <p className="mt-3 text-sm font-medium">Or add it by hand</p>
+            </>
+          )}
           <p className="text-sm text-muted-foreground">{s.steps}</p>
           <CodeBlock
             title={s.where}

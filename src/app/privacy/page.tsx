@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Container, PageGrid, h1Class, ledeClass } from "@/components/marketing/page-layout";
 import { AnalyticsPreferenceControl } from "@/components/privacy/analytics-preference-control";
 import { SiteFooter } from "@/components/site-footer";
-import { HeaderSignIn, SiteHeader } from "@/components/site-header";
+import { HeaderGitHub, HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { POSTHOG_REGION_NAME } from "@/lib/observability/config";
 
 export const metadata: Metadata = {
@@ -36,7 +36,8 @@ function Section({ id, title, children }: { id?: string; title: string; children
 export default function PrivacyPage() {
   return (
     <>
-      <SiteHeader nav>
+      <SiteHeader>
+        <HeaderGitHub />
         <HeaderSignIn />
       </SiteHeader>
 

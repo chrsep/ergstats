@@ -1,6 +1,7 @@
 import { PostHog } from "posthog-node";
 
 import { deploymentEnvironment, POSTHOG_HOSTS, release, serverToken } from "./config";
+import { reportableError } from "./errors";
 import { pseudonymFor } from "./pseudonym";
 
 /**
@@ -64,7 +65,7 @@ export function captureEvent(ph: PostHog | null, event: string, properties: Even
 export function captureError(ph: PostHog | null, error: unknown, properties: EventProperties, userId?: string): void {
   if (!ph) return;
   const { distinctId, personless } = subject(userId);
-  ph.captureException(error, distinctId, {
+  ph.captureException(reportableError(error), distinctId, {
     ...properties,
     release: release(),
     ...(personless ? { $process_person_profile: false } : {}),

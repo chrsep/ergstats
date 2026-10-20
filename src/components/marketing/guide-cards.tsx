@@ -1,8 +1,10 @@
 import { ArrowRightIcon, CodeXmlIcon, MessageSquareIcon, TerminalIcon, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 
+import { AddToClientButton } from "@/components/add-to-client-button";
 import { CopyButton } from "@/components/copy-button";
 import { InlineCode, h3Class, panelClass } from "@/components/marketing/page-layout";
+import { claudeConnectorUrl } from "@/lib/mcp/clients";
 import { cn } from "@/lib/utils";
 
 export interface GuideCard {
@@ -49,7 +51,7 @@ export function GuideCards({ guides, className }: { guides: GuideCard[]; classNa
   });
 }
 
-/** The MCP URL with a copy button, spanning the whole grid. */
+/** The MCP URL with a copy button and Claude's one-click add, spanning the whole grid. */
 export function McpUrlBar({ url, className }: { url: string; className?: string }) {
   return (
     <div
@@ -60,7 +62,10 @@ export function McpUrlBar({ url, className }: { url: string; className?: string 
     >
       <span className="text-sm text-muted-foreground">The one URL every client needs</span>
       <code className="font-mono font-medium break-all">{url}</code>
-      <CopyButton value={url} label="Copy the ErgStats MCP URL" labelled className="md:ml-auto" />
+      <div className="flex flex-col gap-4 sm:flex-row md:ml-auto">
+        <CopyButton value={url} label="Copy the ErgStats MCP URL" labelled />
+        <AddToClientButton href={claudeConnectorUrl(url)} client="claude" name="Claude" source="home" />
+      </div>
     </div>
   );
 }

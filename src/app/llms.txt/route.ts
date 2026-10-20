@@ -1,4 +1,5 @@
 import { TOOLS } from "@/components/marketing/tool-grid";
+import { claudeConnectorUrl } from "@/lib/mcp/clients";
 import { CANONICAL_MCP_URL, FAQS, SITE_DESCRIPTION, SITE_URL, guideClients } from "@/lib/site";
 
 /** llms.txt (llmstxt.org): a plain Markdown summary for AI assistants and answer engines. */
@@ -13,6 +14,7 @@ export function GET() {
     "## Setup guides",
     "",
     ...guideClients().map((c) => `- [Connect your Concept2 Logbook to ${c.name}](${SITE_URL}/connect/${c.id})`),
+    `- [Add ErgStats to Claude in one click](${claudeConnectorUrl(CANONICAL_MCP_URL)}): opens Claude's Add custom connector dialog with ErgStats filled in`,
     "",
     "## Tools",
     "",
