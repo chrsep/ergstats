@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps<"/connect/[client]"
   const setup = await findClient(params);
   const title = `Connect your Concept2 Logbook to ${setup.name}`;
   const description = `Set up ErgStats in ${setup.name} in two minutes and ask about your RowErg, SkiErg and BikeErg workouts: splits, PBs and training load. Free and read-only.`;
-  return { title, description, alternates: { canonical: `/connect/${setup.id}` }, openGraph: { title, description } };
+  return { title, description, alternates: { canonical: `/connect/${setup.id}` }, openGraph: { siteName: "ErgStats", type: "website", locale: "en_US", title, description } };
 }
 
 export default async function ConnectGuidePage({ params }: PageProps<"/connect/[client]">) {

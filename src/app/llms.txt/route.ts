@@ -8,7 +8,7 @@ export function GET() {
     "",
     `> ${SITE_DESCRIPTION}`,
     "",
-    `ErgStats is a hosted, read-only MCP server for the Concept2 Logbook. Add ${CANONICAL_MCP_URL} to an AI assistant, sign in with Concept2, and ask about RowErg, SkiErg and BikeErg workouts in plain language. Anything ErgData or the PM5 syncs to the Logbook is included. ErgStats is independent and not affiliated with or endorsed by Concept2.`,
+    `ErgStats is a hosted, read-only MCP server for the Concept2 Logbook. Add ${CANONICAL_MCP_URL} to an AI assistant and sign in with Concept2 (clients that can't sign in can use an API key from the dashboard), then ask about RowErg, SkiErg and BikeErg workouts in plain language. Anything ErgData or the PM5 syncs to the Logbook is included. ErgStats is independent and not affiliated with or endorsed by Concept2.`,
     "",
     "## Setup guides",
     "",

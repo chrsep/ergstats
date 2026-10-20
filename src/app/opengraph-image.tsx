@@ -24,7 +24,7 @@ export default function Image() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, width: 88, height: 88, padding: 18, borderRadius: 22, background: "#13877f" }}>
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 4, width: 88, height: 88, padding: 18, borderRadius: 22, background: "#13877f" }}>
             {bars.map((h, i) => (
               <div key={i} style={{ width: 10, height: h * 3.6, borderRadius: 5, background: "#f4f7f7" }} />
             ))}

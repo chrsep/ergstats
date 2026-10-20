@@ -38,7 +38,7 @@ export const FAQS: Faq[] = [
   },
   {
     question: "Does ErgStats work with Claude Code, Codex and Cursor?",
-    answer: `Yes. ErgStats is a remote MCP server, so any MCP client can use it. In Claude Code run "claude mcp add --transport http ergstats ${CANONICAL_MCP_URL}", in Codex run "codex mcp add ergstats --url ${CANONICAL_MCP_URL}", and in Cursor or VS Code add the URL to your MCP config.`,
+    answer: `Yes. ErgStats is a remote MCP server, so any MCP client that supports sign-in only needs the URL. In Claude Code run "claude mcp add --transport http ergstats ${CANONICAL_MCP_URL}", then /mcp to sign in. In Codex run "codex mcp add ergstats --url ${CANONICAL_MCP_URL}", then "codex mcp login ergstats". In Cursor or VS Code add the URL to your MCP config and sign in. Clients that can't sign in can use an API key from your dashboard.`,
   },
   {
     question: "What is an MCP server?",
