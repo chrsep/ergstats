@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   description: "What ErgStats stores, what it measures, and how to turn analytics off.",
 };
 
-const CONTACT = "privacy@ergstats.com";
+const CONTACT = "hi@chrsep.dev";
 const UPDATED = "20 October 2026";
 
 const summary = [
