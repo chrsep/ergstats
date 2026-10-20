@@ -36,7 +36,11 @@ export type AnalyticsState = "on" | "off" | "browser" | "unavailable";
 
 const listeners = new Set<() => void>();
 
+/** The choice for this page when local storage is blocked. */
+let optedOutHere: boolean | undefined;
+
 function optedOut(): boolean {
+  if (optedOutHere !== undefined) return optedOutHere;
   try {
     return window.localStorage.getItem(OPT_OUT_KEY) === "1";
   } catch {
@@ -44,9 +48,12 @@ function optedOut(): boolean {
   }
 }
 
+/** The same signals posthog-js checks for respect_dnt. */
 function browserSaysNo(): boolean {
-  const nav = window.navigator as Navigator & { globalPrivacyControl?: boolean };
-  return nav.doNotTrack === "1" || nav.globalPrivacyControl === true;
+  const nav = window.navigator as Navigator & { globalPrivacyControl?: boolean; msDoNotTrack?: string };
+  const win = window as Window & { doNotTrack?: string };
+  const yes = (value: unknown) => value === "1" || value === "yes" || value === 1 || value === true;
+  return [nav.doNotTrack, nav.msDoNotTrack, win.doNotTrack, nav.globalPrivacyControl].some(yes);
 }
 
 export function analyticsState(): AnalyticsState {
@@ -69,8 +76,10 @@ export function setAnalyticsEnabled(enabled: boolean): void {
   try {
     if (enabled) window.localStorage.removeItem(OPT_OUT_KEY);
     else window.localStorage.setItem(OPT_OUT_KEY, "1");
+    optedOutHere = undefined;
   } catch {
     // Storage blocked: the choice lasts for this page only.
+    optedOutHere = !enabled;
   }
   if (enabled) void loadAnalytics();
   for (const listener of listeners) listener();

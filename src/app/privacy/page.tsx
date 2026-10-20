@@ -6,6 +6,7 @@ import { AnalyticsPreferenceControl } from "@/components/privacy/analytics-prefe
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
+import { POSTHOG_REGION_NAME } from "@/lib/observability/config";
 
 export const metadata: Metadata = {
   title: "Privacy",
@@ -64,15 +65,16 @@ export default function PrivacyPage() {
 
           <Section id="analytics" title="Analytics">
             <p>
-              To see whether ErgStats works well, it counts page views, page load speed and errors with PostHog, hosted in the EU
-              (Frankfurt). It runs in cookieless mode: nothing is stored in your browser, and visitors are counted with a hash that
+              To see whether ErgStats works well, it counts page views, page load speed and errors with PostHog, hosted in{" "}
+              {POSTHOG_REGION_NAME}. It runs in cookieless mode: nothing is stored in your browser, and visitors are counted with a hash that
               changes every day. Your IP address is used for that count and then discarded; only your country is kept. Links lose
               everything after the <code className="font-mono text-sm">?</code> except campaign tags.
             </p>
             <p>
               Our server also records when you sign in or connect an AI tool, and, for each request from one, which tool ran, how
-              long it took, whether it worked and which app sent it. That goes under an id that can’t be traced back to you without
-              our server, and never includes your workouts, dates or anything you asked.
+              long it took, whether it worked, which app sent it, and the shape of the request, like which machine or how many days
+              it covered. That goes under an id that can’t be traced back to you without our server, and never includes your
+              workouts, the dates themselves or what you asked.
             </p>
             <AnalyticsPreferenceControl />
             <p className="text-sm">
@@ -94,7 +96,8 @@ export default function PrivacyPage() {
                 spot one you don’t recognize.
               </li>
               <li>
-                <strong>Connected apps and API keys:</strong> which AI tools you approved, and your API keys, stored hashed.
+                <strong>Connected apps and API keys:</strong> which AI tools you approved, the access tokens
+                they use and when those expire, and your API keys, stored hashed.
               </li>
             </ul>
             <p>
@@ -126,7 +129,7 @@ export default function PrivacyPage() {
                 <strong>Neon</strong>, which hosts the database, in Singapore.
               </li>
               <li>
-                <strong>PostHog</strong>, which runs the analytics, in the EU.
+                <strong>PostHog</strong>, which runs the analytics, in {POSTHOG_REGION_NAME}.
               </li>
             </ul>
             <p>ErgStats shows no ads and never sells or shares your data with anyone else.</p>

@@ -17,6 +17,9 @@ export function serverToken(): string | undefined {
 /** EU Cloud (Frankfurt) unless the project lives in US Cloud. */
 const region = process.env.NEXT_PUBLIC_POSTHOG_REGION === "us" ? "us" : "eu";
 
+/** Where the data lives, for the privacy page. */
+export const POSTHOG_REGION_NAME = region === "us" ? "the US" : "the EU (Frankfurt)";
+
 export const POSTHOG_HOSTS = {
   ingest: `https://${region}.i.posthog.com`,
   assets: `https://${region}-assets.i.posthog.com`,
