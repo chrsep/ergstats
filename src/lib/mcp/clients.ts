@@ -40,6 +40,13 @@ export function clientSetups(mcpUrl: string): ClientSetup[] {
       code: `claude mcp add --transport http ergstats ${mcpUrl}`,
     },
     {
+      id: "codex",
+      name: "Codex",
+      where: "Terminal",
+      steps: "Add the server, then run codex mcp login ergstats. Codex opens the sign-in page in your browser.",
+      code: `codex mcp add ergstats --url ${mcpUrl}\ncodex mcp login ergstats`,
+    },
+    {
       id: "cursor",
       name: "Cursor",
       where: "~/.cursor/mcp.json",

@@ -17,6 +17,9 @@ export function SiteFooter() {
           <Link href="/#tools" className="hover:text-foreground">
             Tools
           </Link>
+          <Link href="/#faq" className="hover:text-foreground">
+            FAQ
+          </Link>
         </nav>
       </div>
     </footer>
