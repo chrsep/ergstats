@@ -26,6 +26,47 @@ describe("trainingSummary", () => {
     expect(s.byPeriod.map((p) => p.period)).toEqual(["2026-08-31", "2026-10-12"]);
     expect(s.longestWorkout?.distanceMeters).toBe(10000);
   });
+
+  it("fills empty weeks and reports consistency and gaps over a range", () => {
+    const s = trainingSummary(allResults, { from: "2026-08-31", to: "2026-10-20", groupBy: "week" });
+    // Monday 2026-08-31 to the week of 2026-10-19: 8 weeks, most of them empty.
+    expect(s.byPeriod.map((p) => p.period)).toEqual([
+      "2026-08-31",
+      "2026-09-07",
+      "2026-09-14",
+      "2026-09-21",
+      "2026-09-28",
+      "2026-10-05",
+      "2026-10-12",
+      "2026-10-19",
+    ]);
+    expect(s.byPeriod[1]).toMatchObject({ sessions: 0, meters: 0, time: "0:00.0" });
+    expect(s.emptyPeriodsListed).toBe(true);
+    expect(s.weekly).toMatchObject({ weeks: 8, weeksWithTwoPlus: 1 });
+    expect(s.weekly!.sessionsPerWeek).toBeCloseTo(5 / (51 / 7), 5);
+    expect(s.longestGap).toEqual({ days: 40, from: "2026-09-02", to: "2026-10-12" });
+    expect(s.daysSinceLast).toBe(2);
+  });
+
+  it("doesn't list empty periods for huge ranges or truncated reads", () => {
+    const decades = trainingSummary(allResults, { from: "1990-01-01", to: "9999-12-31", groupBy: "week" });
+    expect(decades.byPeriod).toHaveLength(2);
+    expect(decades.emptyPeriodsListed).toBe(false);
+    const truncated = trainingSummary(allResults, { from: "2026-08-31", to: "2026-10-20", groupBy: "week", truncated: true });
+    expect(truncated.byPeriod).toHaveLength(2);
+    expect(truncated.weekly).toBeNull();
+    expect(truncated.longestGap).toBeNull();
+    expect(truncated.emptyPeriodsListed).toBe(false);
+  });
+
+  it("fills empty months", () => {
+    const s = trainingSummary(allResults, { from: "2026-08-15", to: "2026-10-20", groupBy: "month" });
+    expect(s.byPeriod.map((p) => [p.period, p.sessions])).toEqual([
+      ["2026-08", 0],
+      ["2026-09", 1],
+      ["2026-10", 4],
+    ]);
+  });
 });
 
 describe("workoutDetail", () => {
@@ -48,6 +89,8 @@ describe("workoutDetail", () => {
     const fallBack = { ...steadyState, date: "2026-11-01 01:30:00", date_utc: "2026-11-01 06:30:00", time: 36000 };
     expect(workoutDetail({ ...fallBack, timezone: "America/New_York" }).startedAt).toBe("2026-11-01 01:30:00");
     expect(workoutDetail({ ...fallBack, timezone: "Not/AZone" }).startedAt).toBe("2026-11-01 00:30:00");
+    // A date-only entry comes in as midnight with no UTC time, so there is no start to work out.
+    expect(workoutDetail({ ...fallBack, date: "2013-05-10 00:00:00", date_utc: null, timezone: null }).startedAt).toBeNull();
   });
 
   it("carries every field Concept2 returns for a result", () => {

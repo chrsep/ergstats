@@ -156,9 +156,10 @@ describe("MCP endpoint", () => {
     expect(result.structuredContent).toBeUndefined();
     const text = textOf(result);
     expect(text).toContain("4 workouts match, showing 1-4, newest first");
-    expect(text).toContain("date,machine,meters,time,pace,spm,hr,rest,id,comment\n");
-    expect(text).toContain("2026-10-18 07:30,RowErg,2000,7:31.4,1:52.9,30,178,,1001,Test day. Felt strong in the last 500.");
-    expect(text).toContain("2026-10-12 07:00,RowErg,2000,7:10.0,1:47.5,,,6:00.0,1004,");
+    expect(text).toContain("start,machine,meters,time,pace,spm,hr,rest,id,comment\n");
+    // Concept2 logs the end time; the list shows when each piece started.
+    expect(text).toContain("2026-10-18 07:22,RowErg,2000,7:31.4,1:52.9,30,178,,1001,Test day. Felt strong in the last 500.");
+    expect(text).toContain("2026-10-12 06:46,RowErg,2000,7:10.0,1:47.5,,,6:00.0,1004,");
   });
 
   it("tells the agent which page comes next", async () => {
@@ -201,6 +202,10 @@ describe("MCP endpoint", () => {
     const text = textOf(
       await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: twoK.id, segments: 4 } }),
     );
+    // A 2k is too short for decoupling or efficiency, but zones still apply.
+    expect(text).toContain("\nTime by heart rate, % of max 192: 70-80% 0:45, 80-90% 3:34, 90%+ 3:11.\n");
+    expect(text).not.toContain("ecoupling");
+    expect(text).not.toContain("Efficiency");
     expect(text).toContain("200 strokes in 4 equal-distance segments; pace per 500m.\nto_meters,to_time,pace,watts,spm,m_per_stroke,hr\n500,1:52.9,1:52.9,243,32,10,155\n");
   });
 
@@ -225,7 +230,11 @@ describe("MCP endpoint", () => {
     const text = textOf(await client.callTool({ name: "get_training_summary", arguments: {} }));
     expect(text).toContain("2026-07-28 to 2026-10-19: 5 sessions, 22900m, 1:33:23.");
     expect(text).toContain("SkiErg: 1 session, 6900m, 30:00, avg 2:10.4/500m.");
-    expect(text).toContain("week,sessions,meters,time\n2026-08-31,1,2000,7:42\n2026-10-12,4,20900,1:25:41");
+    expect(text).toContain("Per week: 0.4 sessions and 8 min of work on average; 1 of 13 weeks had 2+ sessions.");
+    expect(text).toContain("Longest gap between workouts: 40 days, 2026-09-02 to 2026-10-12.\nLast workout 1 day ago.");
+    // Empty weeks are listed so gaps show in the table too.
+    expect(text).toContain("2026-08-31,1,2000,7:42\n2026-09-07,0,0,0:00\n");
+    expect(text).toContain("2026-10-12,4,20900,1:25:41\n2026-10-19,0,0,0:00");
   });
 
   it("finds personal bests", async () => {

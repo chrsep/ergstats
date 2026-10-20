@@ -20,7 +20,10 @@ function reading(value: number | null | undefined): number | null {
 /** One workout, compact enough to list dozens of them in a model's context. */
 export interface WorkoutSummary {
   id: number;
+  /** Local time Concept2 logged the workout, which is when it ended. */
   date: string;
+  /** Local start time: the logged end time minus work and rest time. */
+  startedAt: string | null;
   dateUtc: string | null;
   timezone: string | null;
   machine: MachineType;
@@ -49,6 +52,7 @@ export function summarizeWorkout(r: Concept2Result): WorkoutSummary {
   return {
     id: r.id,
     date: r.date,
+    startedAt: startedAt(r),
     dateUtc: r.date_utc ?? null,
     timezone: r.timezone ?? null,
     machine: r.type,
@@ -225,13 +229,14 @@ export function startedAt(
     const local = formatInZone(endUtc - duration, r.timezone);
     if (local) return local;
   }
+  // A bare midnight with no UTC time is how date-only entries come in: there's no real end time to count back from.
+  if (endUtc === null && r.date.endsWith(" 00:00:00")) return null;
   const endLocal = parseAsUtc(r.date);
   if (endLocal === null) return null;
   return new Date(endLocal - duration).toISOString().replace("T", " ").slice(0, 19);
 }
 
 export interface WorkoutDetail extends WorkoutSummary {
-  startedAt: string | null;
   weightClass: "H" | "L" | null;
   privacy: string | null;
   wattMinutes: number | null;
@@ -250,7 +255,6 @@ export function workoutDetail(r: Concept2Result): WorkoutDetail {
   );
   return {
     ...summarizeWorkout(r),
-    startedAt: startedAt(r),
     weightClass: r.weight_class ?? null,
     privacy: r.privacy ?? null,
     wattMinutes: r.wattminutes_total ?? null,
@@ -382,9 +386,51 @@ export interface TrainingSummary {
   time: string;
   timeSeconds: number;
   byMachine: MachineTotals[];
+  /** Every week or month in the range, including empty ones, so gaps show. */
   byPeriod: PeriodTotals[];
+  /** False when byPeriod only has periods with workouts: no from and to, a truncated read, or too long a range. */
+  emptyPeriodsListed: boolean;
   longestWorkout: WorkoutSummary | null;
+  /** Consistency over the calendar weeks (Monday start) the range touches. Null without a from and to. */
+  weekly: { weeks: number; weeksWithTwoPlus: number; sessionsPerWeek: number; secondsPerWeek: number } | null;
+  /** The most days between two consecutive workout days. Null with fewer than two workout days. */
+  longestGap: { days: number; from: string; to: string } | null;
+  /** Days from the last workout to the end of the range. Null without a to. */
+  daysSinceLast: number | null;
   truncated: boolean;
+}
+
+const DAY_MS = 86_400_000;
+
+function addDays(date: string, days: number): string {
+  return new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / DAY_MS);
+}
+
+/** Past this many weeks or months, empty ones aren't listed: the table would cost more than it tells. */
+export const MAX_FILLED_PERIODS = 260;
+
+/** Week (Monday) or month keys from `from` to `to`, inclusive, or null when there would be too many to list. */
+function periodKeys(from: string, to: string, groupBy: "week" | "month"): string[] | null {
+  const keys: string[] = [];
+  if (groupBy === "week") {
+    for (let k = weekStart(from); k <= to; k = addDays(k, 7)) {
+      if (keys.length === MAX_FILLED_PERIODS) return null;
+      keys.push(k);
+    }
+  } else {
+    const end = to.slice(0, 7);
+    for (let k = from.slice(0, 7); k <= end; ) {
+      if (keys.length === MAX_FILLED_PERIODS) return null;
+      keys.push(k);
+      const [y, m] = k.split("-").map(Number);
+      k = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, "0")}`;
+    }
+  }
+  return keys;
 }
 
 export function trainingSummary(
@@ -417,6 +463,40 @@ export function trainingSummary(
     byPeriod.set(key, p);
   }
 
+  // A truncated read is missing the oldest workouts, so its weeks would look empty and its averages low.
+  const range =
+    !opts.truncated && opts.from && opts.to && opts.from <= opts.to ? { from: opts.from, to: opts.to } : null;
+  const keys = range ? periodKeys(range.from, range.to, opts.groupBy) : null;
+  for (const key of keys ?? []) {
+    if (!byPeriod.has(key)) byPeriod.set(key, { sessions: 0, meters: 0, time: 0 });
+  }
+
+  let weekly: TrainingSummary["weekly"] = null;
+  if (range) {
+    const weeks = daysBetween(weekStart(range.from), weekStart(range.to)) / 7 + 1;
+    const perWeek = new Map<string, number>();
+    for (const r of results) {
+      const week = weekStart(localDate(r));
+      perWeek.set(week, (perWeek.get(week) ?? 0) + 1);
+    }
+    // Averages over the range's length, so a partial first or last week doesn't count as a whole one.
+    const rangeWeeks = (daysBetween(range.from, range.to) + 1) / 7;
+    weekly = {
+      weeks,
+      weeksWithTwoPlus: [...perWeek.values()].filter((n) => n >= 2).length,
+      sessionsPerWeek: results.length / rangeWeeks,
+      secondsPerWeek: time / 10 / rangeWeeks,
+    };
+  }
+
+  const days = [...new Set(results.map(localDate))].sort();
+  let longestGap: TrainingSummary["longestGap"] = null;
+  // A truncated read is missing older workouts, which may hold a longer gap.
+  for (let i = 1; i < (opts.truncated ? 0 : days.length); i++) {
+    const gap = daysBetween(days[i - 1], days[i]);
+    if (!longestGap || gap > longestGap.days) longestGap = { days: gap, from: days[i - 1], to: days[i] };
+  }
+
   return {
     from: opts.from ?? null,
     to: opts.to ?? null,
@@ -442,7 +522,11 @@ export function trainingSummary(
         time: formatTenths(v.time),
         timeSeconds: v.time / 10,
       })),
+    emptyPeriodsListed: keys !== null,
     longestWorkout: longest ? summarizeWorkout(longest) : null,
+    weekly,
+    longestGap,
+    daysSinceLast: opts.to && days.length ? daysBetween(days[days.length - 1], opts.to) : null,
     truncated: Boolean(opts.truncated),
   };
 }
