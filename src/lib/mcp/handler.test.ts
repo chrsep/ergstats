@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { Concept2Client } from "@/lib/concept2/client";
 import { allResults, intervals, twoK, twoKStrokes, user } from "@/lib/concept2/__fixtures__/results";
 import { createErgstatsMcpHandler, type KeyCheck } from "./handler";
+import type { AgentFeedback } from "./tools";
 
 const GOOD_KEY = "erg_test_key";
 
@@ -37,6 +38,10 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
   return new Response("not found", { status: 404 });
 }
 
+/** Reports send_feedback stored, and whether the fake store is full. */
+const feedback: { userId: unknown; report: AgentFeedback }[] = [];
+let feedbackFull = false;
+
 const handler = createErgstatsMcpHandler({
   dashboardUrl: "https://ergstats.com/dashboard",
   resourceMetadataUrl: RESOURCE_METADATA,
@@ -59,6 +64,11 @@ const handler = createErgstatsMcpHandler({
   async getClient(authInfo) {
     expect(authInfo?.extra?.userId).toBe("u1");
     return new Concept2Client({ accessToken: "c2-token", baseUrl: "https://c2.test", fetch: fakeConcept2 as typeof fetch });
+  },
+  async saveFeedback(authInfo, report) {
+    if (feedbackFull) return false;
+    feedback.push({ userId: authInfo?.extra?.userId, report });
+    return true;
   },
 });
 
@@ -113,7 +123,7 @@ describe("MCP endpoint", () => {
     expect(res.headers.get("retry-after")).toBe("30");
   });
 
-  it("lists only read-only training tools, answering in text", async () => {
+  it("lists read-only training tools and send_feedback, answering in text", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
@@ -123,10 +133,13 @@ describe("MCP endpoint", () => {
       "get_workout",
       "get_workout_strokes",
       "list_workouts",
+      "send_feedback",
     ]);
     for (const tool of tools) {
       expect(tool.title).toBeTruthy();
-      expect(tool.annotations?.readOnlyHint).toBe(true);
+      // send_feedback writes a report, so it is the one tool that isn't read-only.
+      expect(tool.annotations?.readOnlyHint).toBe(tool.name !== "send_feedback");
+      expect(tool.annotations?.destructiveHint).toBe(false);
       // Clients that see structuredContent read it instead of the text (or as well
       // as it), so results are text only and declare no output schema.
       expect(tool.outputSchema).toBeUndefined();
@@ -236,6 +249,41 @@ describe("MCP endpoint", () => {
     const result = await client.callTool({ name: "get_workout", arguments: { workout_id: 999 } });
     expect(result.isError).toBe(true);
     expect((result.content as { text: string }[])[0].text).toContain("Not found");
+  });
+
+  it("stores feedback for the signed-in user", async () => {
+    const client = await connect();
+    feedback.length = 0;
+    const result = await client.callTool({
+      name: "send_feedback",
+      arguments: { type: "missing_capability", summary: "  The user asked for rowing sessions logged by the PM5 only.  ", tool: "list_workouts" },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)).toBe("Sent to the ErgStats developer. Thanks.");
+    expect(feedback).toEqual([
+      {
+        userId: "u1",
+        report: { type: "missing_capability", summary: "The user asked for rowing sessions logged by the PM5 only.", tool: "list_workouts" },
+      },
+    ]);
+  });
+
+  it("says when feedback was not sent because of the daily limit", async () => {
+    const client = await connect();
+    feedbackFull = true;
+    try {
+      const result = await client.callTool({ name: "send_feedback", arguments: { type: "issue", summary: "get_workout returned no splits." } });
+      expect(result.isError).toBeFalsy();
+      expect(textOf(result)).toContain("Not sent");
+    } finally {
+      feedbackFull = false;
+    }
+  });
+
+  it("rejects feedback without a summary", async () => {
+    const client = await connect();
+    const result = await client.callTool({ name: "send_feedback", arguments: { type: "other", summary: "" } });
+    expect(result.isError).toBe(true);
   });
 
   it("gives 2026-07-28 clients no reason to hold a subscription stream open", async () => {

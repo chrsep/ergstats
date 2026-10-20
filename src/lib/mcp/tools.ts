@@ -30,6 +30,16 @@ export interface ToolDeps {
   getClient: (authInfo: AuthInfo | undefined) => Promise<Concept2Client>;
   /** Today's date as YYYY-MM-DD. Injected so tests are deterministic. */
   today?: () => string;
+  /** Store a send_feedback report from the caller. Resolves false when they hit the daily limit. */
+  saveFeedback: (authInfo: AuthInfo | undefined, feedback: AgentFeedback) => Promise<boolean>;
+}
+
+export const FEEDBACK_TYPES = ["missing_capability", "issue", "other"] as const;
+
+export interface AgentFeedback {
+  type: (typeof FEEDBACK_TYPES)[number];
+  summary: string;
+  tool?: string;
 }
 
 /**
@@ -53,11 +63,12 @@ export const STROKE_LIMIT = { default: 100, max: 250 };
 
 // Claude Code loads only this text (not the tool list) until it searches for a
 // tool, so it says what questions the server answers.
-export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Concept2 Logbook: rowing, SkiErg and BikeErg workouts, splits, intervals, heart rate, stroke data and personal bests. Read-only.
+export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Concept2 Logbook: rowing, SkiErg and BikeErg workouts, splits, intervals, heart rate, stroke data and personal bests. The Logbook is read-only.
 
 - Volume, consistency or trends: get_training_summary. PRs: get_personal_bests.
 - Find sessions with list_workouts, then get_workout for splits or intervals and get_workout_strokes for pacing and heart rate within a piece (zones, decoupling, efficiency, strap checks).
 - get_profile has age, weight and max heart rate for zones and watts per kg.
+- If these tools can't answer what the user asked, or a result looks wrong, tell the developer with send_feedback.
 - Tables are CSV with a header row; empty cells are unrecorded. Times are h:mm:ss.t. Pace is per 500m, or per 1000m on the BikeErg (marked /1k); lower is faster. Times are the athlete's local time; workouts are listed by start time.`;
 
 const PACE_NOTE = "pace per 500m, /1k on the BikeErg";
@@ -78,7 +89,7 @@ function fail(error: unknown): CallToolResult {
       ? error.message
       : error instanceof Error && error.name === "NotConnectedError"
         ? error.message
-        : "Something went wrong reading your Concept2 Logbook. Try again in a moment.";
+        : "Something went wrong reading your Concept2 Logbook. Try again in a moment, and if it keeps failing, report it with send_feedback.";
   if (!(error instanceof Concept2Error)) console.error("[mcp] tool failed", error);
   return { content: [{ type: "text", text: message }], isError: true };
 }
@@ -543,6 +554,34 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         return ok(lines.filter(Boolean).join("\n"));
       } catch (error) {
         return fail(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "send_feedback",
+    {
+      title: "Send feedback",
+      description:
+        "Report to the ErgStats developer when no tool can answer the user's question, or a tool fails or returns something wrong. Describe the gap without the athlete's names, dates, numbers or health details, and tell the user you sent it.",
+      inputSchema: z.object({
+        type: z
+          .enum(FEEDBACK_TYPES)
+          .describe("missing_capability: no tool answers it. issue: a tool failed or was wrong."),
+        summary: z.string().trim().min(10).max(1000).describe("What the user wanted and what was missing or wrong."),
+        tool: z.string().trim().max(64).optional().describe("The tool it is about, if any."),
+      }),
+      // It writes a report, so it isn't read-only; it never touches the Logbook.
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+      _meta: REQUIRES_SIGN_IN,
+    },
+    async ({ type, summary, tool }, ctx) => {
+      try {
+        const saved = await deps.saveFeedback(ctx.http?.authInfo, { type, summary, tool: tool || undefined });
+        return ok(saved ? "Sent to the ErgStats developer. Thanks." : "Not sent: this account has reached today's feedback limit.");
+      } catch (error) {
+        console.error("[mcp] saving feedback failed", error);
+        return { content: [{ type: "text", text: "Couldn't send feedback right now." }], isError: true };
       }
     },
   );

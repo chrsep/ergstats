@@ -2,7 +2,10 @@ import { neon } from "@neondatabase/serverless";
 import { drizzle as drizzleNeon } from "drizzle-orm/neon-http";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 
-import * as schema from "./schema";
+import * as appSchema from "./app-schema";
+import * as authSchema from "./schema";
+
+const schema = { ...authSchema, ...appSchema };
 
 /**
  * Neon over HTTP in production: one round trip per query and no pooled
