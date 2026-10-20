@@ -117,7 +117,8 @@ const calls: [label: string, tool: string, args: Record<string, unknown>, budget
   ["list_workouts (defaults)", "list_workouts", {}, 2_000],
   ["get_workout (30 min, 6 splits)", "get_workout", { workout_id: hour.id }, 800],
   ["get_workout (8 x 500m)", "get_workout", { workout_id: intervals.id }, 1_100],
-  ["get_workout_strokes (defaults, 1 hour)", "get_workout_strokes", { workout_id: hour.id }, 1_200],
+  // The heart rate summary costs a few hundred characters and saves reading every stroke.
+  ["get_workout_strokes (defaults, 1 hour)", "get_workout_strokes", { workout_id: hour.id }, 1_500],
   ["get_workout_strokes (every stroke, defaults)", "get_workout_strokes", { workout_id: hour.id, format: "strokes" }, 5_000],
   // The biggest pages anyone can ask for stay under the 10,000 tokens where
   // Claude Code warns and Codex truncates.
