@@ -1,7 +1,8 @@
-import { ArrowRightIcon, CodeXmlIcon, EyeIcon, LockKeyholeIcon, StarIcon, ZapIcon } from "lucide-react";
+import { ArrowRightIcon, CodeXmlIcon, EyeIcon, LockKeyholeIcon, ZapIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 
+import { AddToClientButton } from "@/components/add-to-client-button";
 import { JsonLd } from "@/components/json-ld";
 import { CompareTable } from "@/components/marketing/compare-table";
 import { FaqList } from "@/components/marketing/faq";
@@ -17,11 +18,13 @@ import {
   h2Class,
   h3Class,
   ledeClass,
+  panelClass,
 } from "@/components/marketing/page-layout";
 import { SiteFooter } from "@/components/site-footer";
 import { HeaderGitHub, HeaderSignIn, SiteHeader } from "@/components/site-header";
 import { buttonVariants } from "@/components/ui/button";
 import { mcpUrl } from "@/lib/app-url";
+import { claudeConnectorUrl } from "@/lib/mcp/clients";
 import { FAQS, GITHUB_URL, SITE_DESCRIPTION, SITE_URL, guideClients, guideDetails } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +45,24 @@ const machines = [
     name: "BikeErg",
     body: "Watts, cadence and volume, with pace per 1000m like your monitor.",
     prompts: ["How far did I ride each week this block?", "Set my heart rate zones from my profile."],
+  },
+];
+
+const steps = [
+  {
+    title: "Add ErgStats to Claude",
+    body: "The Add to Claude button opens Claude with ErgStats already filled in. Click Continue, then Add.",
+    note: "Works on every plan, including Free. On Team and Enterprise, someone who manages connectors adds it first.",
+  },
+  {
+    title: "Sign in with Concept2",
+    body: "Claude sends you to your Concept2 Logbook to approve read-only access. That sign-in is your ErgStats account, so there’s nothing else to sign up for.",
+    note: "Disconnect from Claude or your ErgStats dashboard any time.",
+  },
+  {
+    title: "Ask about your training",
+    body: "Start a new chat and ask. Claude fetches the workouts it needs: splits, intervals, heart rate and PBs.",
+    prompt: "How has my 2k pace changed since January?",
   },
 ];
 
@@ -83,7 +104,10 @@ const structuredData = {
 };
 
 export default function HomePage() {
-  const guides = guideClients().map((c) => ({ id: c.id, name: c.name, ...guideDetails(c.id, c.name) }));
+  const guides = guideClients()
+    .filter((c) => c.id !== "claude")
+    .map((c) => ({ id: c.id, name: c.name, ...guideDetails(c.id, c.name) }));
+  const claudeUrl = claudeConnectorUrl(mcpUrl());
 
   return (
     <>
@@ -110,20 +134,23 @@ export default function HomePage() {
                   Ask your AI agent about every meter you’ve rowed.
                 </h1>
                 <p className={cn(ledeClass, "max-w-xl text-[#B7C4C2]")}>
-                  Connect your Concept2 Logbook in two minutes. Let your AI agent analyze your Logbook and help you understand your journey.
+                  Add ErgStats to Claude, sign in with your Concept2 Logbook, and ask. There’s no separate account to create.
                 </p>
                 <div className="flex w-full flex-col items-center gap-2 pt-2 sm:w-auto sm:flex-row sm:gap-7">
-                  <Link
-                    href="/#guides"
-                    className={cn(buttonVariants({ size: "xl" }), "w-full rounded-full bg-[#F2F6F5] px-7 text-[#0B1514] hover:bg-white sm:w-auto")}
-                  >
-                    Connect your Logbook
-                  </Link>
-                  <Link href="/#ask" className="inline-flex min-h-11 items-center gap-2 font-medium transition-colors hover:text-[#8FD3CD]">
-                    See what you can ask
+                  <AddToClientButton
+                    href={claudeUrl}
+                    client="claude"
+                    name="Claude"
+                    source="home_hero"
+                    size="xl"
+                    className="w-full rounded-full bg-[#F2F6F5] px-7 text-[#0B1514] hover:bg-white sm:w-auto"
+                  />
+                  <Link href="/#guides" className="inline-flex min-h-11 items-center gap-2 font-medium transition-colors hover:text-[#8FD3CD]">
+                    Use ChatGPT or another app
                     <ArrowRightIcon aria-hidden="true" className="size-4.5" />
                   </Link>
                 </div>
+                <p className="text-sm text-[#B7C4C2]">Works on every Claude plan, including Free.</p>
               </div>
               <div className="flex min-h-38 w-full flex-col items-center justify-end gap-1.5 text-[0.8125rem] text-[#B7C4C2] md:min-h-30 md:flex-row md:items-end md:justify-between md:gap-8 md:text-sm">
                 <p>Works with Claude, ChatGPT, and any AI agent</p>
@@ -133,18 +160,59 @@ export default function HomePage() {
           </div>
         </div>
 
-        <Section id="guides" tone="muted" aria-labelledby="guides-title">
+        <Section id="how" tone="muted" aria-labelledby="how-title">
+          <PageGrid>
+            <SectionHeading
+              id="how-title"
+              eyebrow="How it works"
+              title="Connect your Concept2 Logbook to Claude"
+              lede="Three steps, about two minutes. No password to share, no token to paste, nothing to install."
+            />
+          </PageGrid>
+          <PageGrid>
+            <ol className="col-span-full grid grid-cols-subgrid gap-y-4 md:gap-y-6">
+              {steps.map((step, i) => (
+                <li key={step.title} className={cn(panelClass, "col-span-full md:col-span-8 lg:col-span-4")}>
+                  <span
+                    aria-hidden="true"
+                    className="flex size-10 items-center justify-center rounded-xl bg-primary/10 font-mono font-semibold text-primary"
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="flex flex-col gap-2">
+                    <h3 className={h3Class}>{step.title}</h3>
+                    <p className="text-pretty text-muted-foreground">{step.body}</p>
+                  </div>
+                  {step.note && <p className="mt-auto pt-2 text-sm text-pretty text-muted-foreground">{step.note}</p>}
+                  {step.prompt && <p className="mt-auto rounded-xl bg-muted px-4 py-3 text-[0.9375rem]">“{step.prompt}”</p>}
+                </li>
+              ))}
+            </ol>
+            <div className="col-span-full flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+              <AddToClientButton href={claudeUrl} client="claude" name="Claude" source="home_steps" size="xl" />
+              <Link
+                href="/connect/claude"
+                className="inline-flex min-h-11 items-center gap-1.5 font-medium text-primary underline-offset-3 hover:underline"
+              >
+                Step-by-step Claude guide
+                <ArrowRightIcon aria-hidden="true" className="size-4" />
+              </Link>
+            </div>
+          </PageGrid>
+        </Section>
+
+        <Section id="guides" aria-labelledby="guides-title" className="border-t">
           <PageGrid>
             <SectionHeading
               id="guides-title"
-              eyebrow="Setup"
-              title="Connect your Concept2 Logbook to your AI"
-              lede="Add one URL, sign in with Concept2, and ask. No password to share, no token to paste, nothing to install."
+              eyebrow="Other apps"
+              title="Using ChatGPT or a coding agent?"
+              lede="Every app uses the same URL and the same Concept2 sign-in. Pick yours for the exact steps."
             />
           </PageGrid>
           <PageGrid>
             <GuideCards guides={guides} />
-            <McpUrlBar url={mcpUrl()} />
+            <McpUrlBar url={mcpUrl()} oneClick={false} />
             <p className="col-span-full text-sm text-pretty text-muted-foreground">
               Using another MCP client? Any client that supports sign-in works with the same URL. Clients that can’t sign in can use an API
               key from your{" "}
@@ -156,7 +224,7 @@ export default function HomePage() {
           </PageGrid>
         </Section>
 
-        <Section id="ask" aria-labelledby="ask-title" className="border-t">
+        <Section id="ask" tone="muted" aria-labelledby="ask-title">
           <PageGrid>
             <SectionHeading
               id="ask-title"
@@ -269,16 +337,19 @@ export default function HomePage() {
               <h2 id="cta-title" className={h2Class}>
                 Your Logbook, in the assistant you already use.
               </h2>
-              <p className={ledeClass}>Free, read-only and open source. Connected in two minutes.</p>
+              <p className={ledeClass}>
+                Free, read-only and{" "}
+                <a href={GITHUB_URL} className="font-medium text-primary underline underline-offset-3 hover:no-underline">
+                  open source
+                </a>
+                . Connected in two minutes.
+              </p>
             </div>
             <div className="col-span-full flex flex-col gap-4 sm:flex-row lg:col-span-5 lg:justify-end">
-              <Link href="/sign-in" className={buttonVariants({ size: "xl" })}>
-                Sign in with Concept2
+              <AddToClientButton href={claudeUrl} client="claude" name="Claude" source="home_cta" size="xl" />
+              <Link href="/#guides" className={cn(buttonVariants({ size: "xl", variant: "outline" }), "font-medium")}>
+                Other apps
               </Link>
-              <a href={GITHUB_URL} className={buttonVariants({ size: "xl", variant: "outline", className: "font-medium" })}>
-                <StarIcon />
-                Star on GitHub
-              </a>
             </div>
           </PageGrid>
         </Section>

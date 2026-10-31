@@ -51,8 +51,8 @@ export function GuideCards({ guides, className }: { guides: GuideCard[]; classNa
   });
 }
 
-/** The MCP URL with a copy button and Claude's one-click add, spanning the whole grid. */
-export function McpUrlBar({ url, className }: { url: string; className?: string }) {
+/** The MCP URL with a copy button and, unless `oneClick` is off, Claude's one-click add, spanning the whole grid. */
+export function McpUrlBar({ url, oneClick = true, className }: { url: string; oneClick?: boolean; className?: string }) {
   return (
     <div
       className={cn(
@@ -64,7 +64,7 @@ export function McpUrlBar({ url, className }: { url: string; className?: string 
       <code className="font-mono font-medium break-all">{url}</code>
       <div className="flex flex-col gap-4 sm:flex-row md:ml-auto">
         <CopyButton value={url} label="Copy the ErgStats MCP URL" labelled />
-        <AddToClientButton href={claudeConnectorUrl(url)} client="claude" name="Claude" source="home" />
+        {oneClick && <AddToClientButton href={claudeConnectorUrl(url)} client="claude" name="Claude" source="home" />}
       </div>
     </div>
   );
