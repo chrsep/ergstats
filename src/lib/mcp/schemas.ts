@@ -23,3 +23,14 @@ export const dateSchema = z
     const ms = Date.parse(`${s}T00:00:00Z`);
     return !Number.isNaN(ms) && new Date(ms).toISOString().slice(0, 10) === s;
   }, "Not a real date");
+
+/**
+ * A Logbook workout ID. Some clients send numeric IDs as strings ("123"); accept those
+ * instead of failing validation, while the advertised JSON Schema stays a plain integer.
+ */
+export const workoutIdSchema = z
+  .preprocess(
+    (value) => (typeof value === "string" && /^\s*\d+\s*$/.test(value) ? Number(value) : value),
+    z.number().int().min(1).max(1e12),
+  )
+  .describe("From list_workouts.");

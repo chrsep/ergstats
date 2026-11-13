@@ -21,7 +21,7 @@ import {
 } from "@/lib/concept2/effort";
 import { formatTenths, isInterval, machineLabel, paceUnit } from "@/lib/concept2/format";
 import type { MachineType } from "@/lib/concept2/types";
-import { dateSchema, machineSchema } from "./schemas";
+import { dateSchema, machineSchema, workoutIdSchema } from "./schemas";
 import { MCP_SCOPE } from "./scopes";
 import { clip, csv, join, shortPace, wholeSeconds } from "./text";
 
@@ -319,7 +319,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       description:
         "One workout in full: start and end time, totals (watts, calories, strokes, drag factor), heart rate, rest, monitor targets, comments, and a CSV of its splits or intervals with pace, watts, stroke rate, heart rate and rest.",
       inputSchema: z.object({
-        workout_id: z.number().int().min(1).max(1e12).describe("From list_workouts."),
+        workout_id: workoutIdSchema,
       }),
       annotations: READ_ONLY,
       _meta: REQUIRES_SIGN_IN,
@@ -382,7 +382,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       title: "Get stroke data",
       description: `Pacing and heart rate within one workout from its stroke data. By default: time in heart rate zones, aerobic decoupling, efficiency (watts per beat) and heart rate strap checks, then a CSV averaged into equal-distance segments (pace, watts, stroke rate, meters per stroke, heart rate). format "strokes" gives every stroke instead, ${STROKE_LIMIT.default} per page from offset; prefer the default unless single strokes matter.`,
       inputSchema: z.object({
-        workout_id: z.number().int().min(1).max(1e12).describe("From list_workouts."),
+        workout_id: workoutIdSchema,
         format: z.enum(["segments", "strokes"]).default("segments"),
         segments: z.number().int().min(2).max(100).default(20).describe("Segment count, for format segments."),
         offset: z.number().int().min(0).max(100_000).default(0).describe("Strokes to skip, for format strokes."),
