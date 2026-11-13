@@ -9,6 +9,7 @@ import { appUrl, mcpUrl, resourceMetadataUrl } from "@/lib/app-url";
 import { auth, CONCEPT2_PROVIDER_ID } from "@/lib/auth";
 import { Concept2Client } from "@/lib/concept2/client";
 import { createMcpTelemetry } from "@/lib/observability/mcp";
+import { getTokenWithRetry } from "./concept2-token";
 import { API_KEY_PREFIX, type AuthorizedHandler, createErgstatsMcpHandler, type KeyCheck, type QuotaCheck } from "./handler";
 import { MCP_SCOPE } from "./scopes";
 import type { AgentFeedback } from "./tools";
@@ -120,12 +121,11 @@ async function getClient(authInfo: AuthInfo | undefined): Promise<Concept2Client
   }
 
   // Refreshes the Concept2 token (and stores the rotated refresh token) when it is about to expire.
-  let accessToken: string | undefined;
-  try {
-    ({ accessToken } = await auth.api.getAccessToken({ body: { accountId: row.id, userId } }));
-  } catch (error) {
-    console.error("[mcp] Concept2 token refresh failed", error);
-  }
+  // Retries, because parallel tool calls race to refresh the same token; see getTokenWithRetry.
+  const accessToken = await getTokenWithRetry(
+    async () => (await auth.api.getAccessToken({ body: { accountId: row.id, userId } })).accessToken,
+    { onError: (error, attempt) => console.error(`[mcp] Concept2 token refresh failed (attempt ${attempt + 1})`, error) },
+  );
   if (!accessToken) {
     throw new NotConnectedError(
       `Your Concept2 connection has expired. Sign in at ${appUrl()} again to reconnect.`,
