@@ -217,9 +217,13 @@ describe("MCP endpoint", () => {
     const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: twoK.id } }));
     expect(text).toContain("RowErg FixedDistanceSplits on 2026-10-18 07:30:00, started 07:22:28, Asia/Jakarta. id 1001.");
     expect(text).toContain("2000m in 7:31.4, 1:52.9/500m, 244W, 30spm, 226 strokes, 140 cal, drag factor 125.");
-    expect(text).toContain("Heart rate: avg 178, min 120, max 190, end 189.");
+    expect(text).toContain(
+      "Heart rate: Logbook avg 178 (from split-end readings), time-weighted avg 178 (from split averages), min 120, max 190, end 189.",
+    );
     expect(text).toContain("Targets: 1:53.0/500m, 30spm.");
-    expect(text).toContain("4 splits (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max\n1,500,1:55.0,1:55.0,230,31,168,176\n");
+    expect(text).toContain("4 splits (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,hr_end\n1,500,1:55.0,1:55.0,230,31,168,176,175\n");
+    // Splits without an end-of-split reading leave that cell empty.
+    expect(text).toContain("\n2,500,1:54.0,1:54.0,236,29,177,,\n");
     // Equipment and logging details are not training data.
     expect(text).not.toMatch(/serial|firmware|privacy|ErgData/);
   });
@@ -228,7 +232,7 @@ describe("MCP endpoint", () => {
     const client = await connect();
     const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: intervals.id } }));
     expect(text).toContain(
-      "4 distance intervals (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,rest,rest_m,hr_end_of_rest\n1,500,1:47.5,1:47.5,282,32,170,178,2:00.0,,120\n",
+      "4 distance intervals (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,hr_end,rest,rest_m,hr_end_of_rest\n1,500,1:47.5,1:47.5,282,32,170,178,178,2:00.0,,120\n",
     );
   });
 

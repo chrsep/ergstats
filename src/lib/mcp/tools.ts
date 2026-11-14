@@ -196,6 +196,7 @@ function segmentTable(segments: SplitDetail[], intervals: boolean): string {
     wattMinutes && "watt_min",
     "hr_avg",
     "hr_max",
+    "hr_end",
     intervals && "rest",
     intervals && "rest_m",
     intervals && "hr_end_of_rest",
@@ -215,6 +216,8 @@ function segmentTable(segments: SplitDetail[], intervals: boolean): string {
       s.wattMinutes,
       s.heartRate?.average,
       s.heartRate?.max,
+      // The reading at the end of the segment, which is what the Logbook website's split table shows.
+      s.heartRate?.ending,
       s.restTime,
       s.restMeters,
       s.heartRate?.rest,
@@ -328,7 +331,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       try {
         const client = await deps.getClient(ctx.http?.authInfo);
         const detail = workoutDetail(await client.getResult(workout_id));
-        const { heartRate: hr, targets } = detail;
+        const { heartRate: hr, heartRateTimeWeighted: hrWeighted, targets } = detail;
         const sameDay = detail.startedAt?.slice(0, 10) === detail.date.slice(0, 10);
         const started = detail.startedAt && (sameDay ? detail.startedAt.slice(11) : detail.startedAt);
         const intervals = detail.segmentKind === "intervals";
@@ -351,7 +354,10 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           ])}.`,
           hr &&
             `Heart rate: ${join([
-              hr.average && `avg ${hr.average}`,
+              // Two averages, because the Logbook's own follows the end-of-split readings, not the whole piece.
+              hr.average && `Logbook avg ${hr.average}${hrWeighted ? " (from split-end readings)" : ""}`,
+              hrWeighted &&
+                `time-weighted avg ${hrWeighted} (from ${intervals ? "interval averages, rest excluded" : "split averages"})`,
               hr.min && `min ${hr.min}`,
               hr.max && `max ${hr.max}`,
               hr.ending && `end ${hr.ending}`,
