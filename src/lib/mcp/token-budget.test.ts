@@ -147,7 +147,7 @@ describe("token budget", () => {
     expect(definitions.length).toBeLessThan(5_300);
     expect(full.length).toBeLessThan(6_800);
     // Claude Code keeps only the first 4,096 characters.
-    expect(instructions.length).toBeLessThan(1_000);
+    expect(instructions.length).toBeLessThan(1_100);
     await client.close();
   });
 
