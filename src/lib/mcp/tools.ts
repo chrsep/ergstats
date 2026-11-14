@@ -71,7 +71,7 @@ export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Conce
 - Find sessions with list_workouts, then get_workout for splits or intervals and get_workout_strokes for pacing and heart rate within a piece (zones, decoupling, efficiency, strap checks).
 - get_profile has age, weight and max heart rate for zones and watts per kg.
 - If these tools can't answer what the user asked, or a result looks wrong, tell the developer with send_feedback.
-- Concept2's average heart rate (hr in lists, "Logbook avg") comes from end-of-split readings, so a warm-up makes it read high; get_workout adds a time-weighted average.
+- Concept2's average heart rate (hr in lists, "Logbook avg") comes from end-of-split readings, so a warm-up makes it read high; get_workout adds a time-weighted average when its splits have heart rate.
 - Tables are CSV with a header row; empty cells are unrecorded. Times are h:mm:ss.t. Pace is per 500m, or per 1000m on the BikeErg (marked /1k); lower is faster. Times are the athlete's local time; workouts are listed by start time.`;
 
 const PACE_NOTE = "pace per 500m, /1k on the BikeErg";
