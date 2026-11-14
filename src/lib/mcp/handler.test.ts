@@ -11,6 +11,16 @@ const GOOD_KEY = "erg_test_key";
 const GOOD_TOKEN = "oauth-access-token";
 const RESOURCE_METADATA = "https://ergstats.test/.well-known/oauth-protected-resource/mcp";
 
+/** Heart rate on every interval but none for the workout as a whole. */
+const splitsOnlyHeartRate = {
+  ...intervals,
+  id: 1099,
+  heart_rate: null,
+  workout: {
+    intervals: intervals.workout!.intervals!.map((interval) => ({ ...interval, heart_rate: { average: 170 } })),
+  },
+};
+
 /** A fake Concept2 Logbook API serving the fixtures. */
 async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
   const url = new URL(input instanceof Request ? input.url : input);
@@ -33,7 +43,7 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
     return json({ data: rows, meta: { pagination } });
   }
   if (url.pathname === `/api/users/me/results/${twoK.id}/strokes`) return json({ data: twoKStrokes });
-  const result = allResults.find((r) => url.pathname === `/api/users/me/results/${r.id}`);
+  const result = [...allResults, splitsOnlyHeartRate].find((r) => url.pathname === `/api/users/me/results/${r.id}`);
   if (result) return json({ data: result });
   return new Response("not found", { status: 404 });
 }
@@ -233,6 +243,14 @@ describe("MCP endpoint", () => {
     const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: intervals.id } }));
     expect(text).toContain(
       "4 distance intervals (pace per 500m; hr_end is the reading at the end of each interval, as the Logbook site lists it):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,hr_end,rest,rest_m,hr_end_of_rest\n1,500,1:47.5,1:47.5,282,32,170,178,178,2:00.0,,120\n",
+    );
+  });
+
+  it("shows the time-weighted heart rate when the workout has no average of its own", async () => {
+    const client = await connect();
+    const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: splitsOnlyHeartRate.id } }));
+    expect(text).toContain(
+      "\nHeart rate: time-weighted avg 170 (over the work intervals, rest excluded, from interval averages).\n",
     );
   });
 

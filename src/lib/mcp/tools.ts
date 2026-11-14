@@ -357,16 +357,16 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
             detail.dragFactor && `drag factor ${detail.dragFactor}`,
             detail.restTime && `rest ${detail.restTime}${detail.restMeters ? ` (${detail.restMeters}m)` : ""}`,
           ])}.`,
-          hr &&
+          (hr || hrWeighted) &&
             `Heart rate: ${join([
               // Two averages, because the Logbook's own follows the end-of-split readings, not the whole piece.
-              hr.average && `Logbook avg ${hr.average} (Concept2's figure, from end-of-${segmentWord} readings)`,
+              hr?.average && `Logbook avg ${hr.average} (Concept2's figure, from end-of-${segmentWord} readings)`,
               hrWeighted &&
                 `time-weighted avg ${hrWeighted} (${intervals ? "over the work intervals, rest excluded" : "over the whole piece"}, from ${segmentWord} averages)`,
-              hr.min && `min ${hr.min}`,
-              hr.max && `max ${hr.max}`,
-              hr.ending && `end ${hr.ending}`,
-              hr.recovery && `recovery ${hr.recovery}`,
+              hr?.min && `min ${hr.min}`,
+              hr?.max && `max ${hr.max}`,
+              hr?.ending && `end ${hr.ending}`,
+              hr?.recovery && `recovery ${hr.recovery}`,
             ])}.`,
           targets &&
             `Targets: ${join([
