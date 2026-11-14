@@ -11,6 +11,16 @@ const GOOD_KEY = "erg_test_key";
 const GOOD_TOKEN = "oauth-access-token";
 const RESOURCE_METADATA = "https://ergstats.test/.well-known/oauth-protected-resource/mcp";
 
+/** Heart rate on every interval but none for the workout as a whole. */
+const splitsOnlyHeartRate = {
+  ...intervals,
+  id: 1099,
+  heart_rate: null,
+  workout: {
+    intervals: intervals.workout!.intervals!.map((interval) => ({ ...interval, heart_rate: { average: 170 } })),
+  },
+};
+
 /** A fake Concept2 Logbook API serving the fixtures. */
 async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
   const url = new URL(input instanceof Request ? input.url : input);
@@ -33,7 +43,7 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
     return json({ data: rows, meta: { pagination } });
   }
   if (url.pathname === `/api/users/me/results/${twoK.id}/strokes`) return json({ data: twoKStrokes });
-  const result = allResults.find((r) => url.pathname === `/api/users/me/results/${r.id}`);
+  const result = [...allResults, splitsOnlyHeartRate].find((r) => url.pathname === `/api/users/me/results/${r.id}`);
   if (result) return json({ data: result });
   return new Response("not found", { status: 404 });
 }
@@ -200,7 +210,7 @@ describe("MCP endpoint", () => {
   it("tells the agent which page comes next", async () => {
     const client = await connect();
     const first = textOf(await client.callTool({ name: "list_workouts", arguments: { limit: 2 } }));
-    expect(first).toMatch(/^5 workouts match, showing 1-2, newest first; next page 2 of 3; pace per 500m, \/1k on the BikeErg\.\n/);
+    expect(first).toMatch(/^5 workouts match, showing 1-2, newest first; next page 2 of 3; pace per 500m, \/1k on the BikeErg; hr is the Logbook average\.\n/);
     const last = textOf(await client.callTool({ name: "list_workouts", arguments: { limit: 2, page: 3 } }));
     expect(last).toMatch(/^5 workouts match, showing 5-5, newest first; pace/);
     expect(last.split("\n")).toHaveLength(3);
@@ -217,9 +227,13 @@ describe("MCP endpoint", () => {
     const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: twoK.id } }));
     expect(text).toContain("RowErg FixedDistanceSplits on 2026-10-18 07:30:00, started 07:22:28, Asia/Jakarta. id 1001.");
     expect(text).toContain("2000m in 7:31.4, 1:52.9/500m, 244W, 30spm, 226 strokes, 140 cal, drag factor 125.");
-    expect(text).toContain("Heart rate: avg 178, min 120, max 190, end 189.");
+    expect(text).toContain(
+      "Heart rate: Logbook avg 178 (Concept2's figure, from end-of-split readings), time-weighted avg 178 (over the whole piece, from split averages), min 120, max 190, end 189.",
+    );
     expect(text).toContain("Targets: 1:53.0/500m, 30spm.");
-    expect(text).toContain("4 splits (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max\n1,500,1:55.0,1:55.0,230,31,168,176\n");
+    expect(text).toContain("4 splits (pace per 500m; hr_end is the reading at the end of each split, as the Logbook site lists it):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,hr_end\n1,500,1:55.0,1:55.0,230,31,168,176,175\n");
+    // Splits without an end-of-split reading leave that cell empty.
+    expect(text).toContain("\n2,500,1:54.0,1:54.0,236,29,177,,\n");
     // Equipment and logging details are not training data.
     expect(text).not.toMatch(/serial|firmware|privacy|ErgData/);
   });
@@ -228,7 +242,15 @@ describe("MCP endpoint", () => {
     const client = await connect();
     const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: intervals.id } }));
     expect(text).toContain(
-      "4 distance intervals (pace per 500m):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,rest,rest_m,hr_end_of_rest\n1,500,1:47.5,1:47.5,282,32,170,178,2:00.0,,120\n",
+      "4 distance intervals (pace per 500m; hr_end is the reading at the end of each interval, as the Logbook site lists it):\nn,meters,time,pace,watts,spm,hr_avg,hr_max,hr_end,rest,rest_m,hr_end_of_rest\n1,500,1:47.5,1:47.5,282,32,170,178,178,2:00.0,,120\n",
+    );
+  });
+
+  it("shows the time-weighted heart rate when the workout has no average of its own", async () => {
+    const client = await connect();
+    const text = textOf(await client.callTool({ name: "get_workout", arguments: { workout_id: splitsOnlyHeartRate.id } }));
+    expect(text).toContain(
+      "\nHeart rate: time-weighted avg 170 (over the work intervals, rest excluded, from interval averages).\n",
     );
   });
 

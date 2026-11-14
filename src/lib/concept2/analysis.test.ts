@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { allResults, intervalStrokes, intervals, steadyState, twoK, twoKStrokes } from "./__fixtures__/results";
-import { bucketStrokes, personalBests, strokeRows, summarizeWorkout, trainingSummary, workoutDetail } from "./analysis";
+import {
+  bucketStrokes,
+  personalBests,
+  strokeRows,
+  summarizeWorkout,
+  timeWeightedHeartRate,
+  trainingSummary,
+  workoutDetail,
+} from "./analysis";
 
 describe("personalBests", () => {
   it("keeps the fastest exact-distance piece and ignores intervals", () => {
@@ -66,6 +74,32 @@ describe("trainingSummary", () => {
       ["2026-09", 1],
       ["2026-10", 4],
     ]);
+  });
+});
+
+describe("timeWeightedHeartRate", () => {
+  it("weights each split's average by its time", () => {
+    // A warm-up split pulls the real average well below the later splits.
+    const splits = [
+      { timeSeconds: 300, heartRateAvg: 130 },
+      { timeSeconds: 300, heartRateAvg: 160 },
+      { timeSeconds: 60, heartRateAvg: 170 },
+    ];
+    expect(timeWeightedHeartRate(splits)).toBe(147);
+  });
+
+  it("ignores a short split with no reading, but not a long one", () => {
+    const full = { timeSeconds: 300, heartRateAvg: 150 };
+    expect(timeWeightedHeartRate([full, full, { timeSeconds: 5, heartRateAvg: null }])).toBe(150);
+    expect(timeWeightedHeartRate([full, { timeSeconds: 300, heartRateAvg: null }])).toBeNull();
+    expect(timeWeightedHeartRate([])).toBeNull();
+  });
+
+  it("is part of the workout detail when the splits carry averages", () => {
+    expect(workoutDetail(twoK).heartRateTimeWeighted).toBe(178);
+    // Only one of the four intervals has a heart rate.
+    expect(workoutDetail(intervals).heartRateTimeWeighted).toBeNull();
+    expect(workoutDetail(steadyState).heartRateTimeWeighted).toBeNull();
   });
 });
 

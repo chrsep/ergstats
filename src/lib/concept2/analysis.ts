@@ -241,9 +241,26 @@ export interface WorkoutDetail extends WorkoutSummary {
   privacy: string | null;
   wattMinutes: number | null;
   heartRate: HeartRateDetail | null;
+  /** Average heart rate over the work time, from the split averages; see timeWeightedHeartRate. */
+  heartRateTimeWeighted: number | null;
   targets: TargetsDetail | null;
   segmentKind: "intervals" | "splits" | null;
   segments: SplitDetail[];
+}
+
+/**
+ * The average heart rate over the whole piece, weighting each split's average by its time.
+ *
+ * The workout-level average Concept2 reports follows the readings taken at the end of each
+ * split, so a piece that starts with a warm-up reads higher there than the athlete's heart
+ * rate really averaged. Null unless splits with an average cover at least 90% of the time.
+ */
+export function timeWeightedHeartRate(segments: Pick<SplitDetail, "timeSeconds" | "heartRateAvg">[]): number | null {
+  const total = segments.reduce((sum, s) => sum + s.timeSeconds, 0);
+  const measured = segments.filter((s) => s.heartRateAvg !== null && s.timeSeconds > 0);
+  const covered = measured.reduce((sum, s) => sum + s.timeSeconds, 0);
+  if (total <= 0 || covered < total * 0.9) return null;
+  return Math.round(measured.reduce((sum, s) => sum + (s.heartRateAvg ?? 0) * s.timeSeconds, 0) / covered);
 }
 
 export function workoutDetail(r: Concept2Result): WorkoutDetail {
@@ -259,6 +276,7 @@ export function workoutDetail(r: Concept2Result): WorkoutDetail {
     privacy: r.privacy ?? null,
     wattMinutes: r.wattminutes_total ?? null,
     heartRate: heartRateDetail(r.heart_rate),
+    heartRateTimeWeighted: timeWeightedHeartRate(segments),
     targets: targetsDetail(r.workout?.targets, r.type),
     segmentKind,
     segments,

@@ -71,9 +71,12 @@ export const SERVER_INSTRUCTIONS = `ErgStats reads the signed-in athlete's Conce
 - Find sessions with list_workouts, then get_workout for splits or intervals and get_workout_strokes for pacing and heart rate within a piece (zones, decoupling, efficiency, strap checks).
 - get_profile has age, weight and max heart rate for zones and watts per kg.
 - If these tools can't answer what the user asked, or a result looks wrong, tell the developer with send_feedback.
+- Concept2's average heart rate (hr in lists, "Logbook avg") comes from end-of-split readings, so a warm-up makes it read high; get_workout adds a time-weighted average when its splits have heart rate.
 - Tables are CSV with a header row; empty cells are unrecorded. Times are h:mm:ss.t. Pace is per 500m, or per 1000m on the BikeErg (marked /1k); lower is faster. Times are the athlete's local time; workouts are listed by start time.`;
 
 const PACE_NOTE = "pace per 500m, /1k on the BikeErg";
+/** Concept2's workout average follows the end-of-split readings, so results say whose average they show. */
+const LOGBOOK_HR_NOTE = "hr is the Logbook average";
 
 /** The pace unit for tables about one workout. MultiErg intervals mix machines, so they get the general note. */
 const paceNote = (machine: MachineType) =>
@@ -119,7 +122,7 @@ function workoutHeading(w: WorkoutSummary): string {
     `${w.distanceMeters}m in ${w.time}`,
     w.pace,
     w.strokeRate && `${w.strokeRate}spm`,
-    w.heartRateAvg && `${w.heartRateAvg}bpm`,
+    w.heartRateAvg && `Logbook avg ${w.heartRateAvg}bpm`,
     w.restTime && `rest ${w.restTime}`,
     `id ${w.id}`,
   ]);
@@ -196,6 +199,7 @@ function segmentTable(segments: SplitDetail[], intervals: boolean): string {
     wattMinutes && "watt_min",
     "hr_avg",
     "hr_max",
+    "hr_end",
     intervals && "rest",
     intervals && "rest_m",
     intervals && "hr_end_of_rest",
@@ -215,6 +219,8 @@ function segmentTable(segments: SplitDetail[], intervals: boolean): string {
       s.wattMinutes,
       s.heartRate?.average,
       s.heartRate?.max,
+      // The reading at the end of the segment, which is what the Logbook website's split table shows.
+      s.heartRate?.ending,
       s.restTime,
       s.restMeters,
       s.heartRate?.rest,
@@ -262,7 +268,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     "list_workouts",
     {
       title: "List workouts",
-      description: `Find workouts by date range and machine, newest first, ${LIST_LIMIT.default} per page. One CSV row each: start time, machine, meters, time, pace, stroke rate, average heart rate, rest, id and the athlete's comment. Pass the id to get_workout for splits.`,
+      description: `Find workouts by date range and machine, newest first, ${LIST_LIMIT.default} per page. One CSV row each: start time, machine, meters, time, pace, stroke rate, Logbook average heart rate, rest, id and the athlete's comment. Pass the id to get_workout for splits.`,
       inputSchema: z.object({
         from: dateSchema.optional().describe("On or after, YYYY-MM-DD."),
         to: dateSchema.optional().describe("On or before, YYYY-MM-DD."),
@@ -287,6 +293,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
             `${total} workouts match, showing ${first}-${first + workouts.length - 1}, newest first`,
             page < totalPages && `next page ${page + 1} of ${totalPages}`,
             PACE_NOTE,
+            LOGBOOK_HR_NOTE,
           ],
           "; ",
         );
@@ -317,7 +324,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
     {
       title: "Get workout",
       description:
-        "One workout in full: start and end time, totals (watts, calories, strokes, drag factor), heart rate, rest, monitor targets, comments, and a CSV of its splits or intervals with pace, watts, stroke rate, heart rate and rest.",
+        "One workout in full: start and end time, totals (watts, calories, strokes, drag factor), heart rate (the Logbook's average and a time-weighted one), rest, monitor targets, comments, and a CSV of its splits or intervals with pace, watts, stroke rate, heart rate and rest.",
       inputSchema: z.object({
         workout_id: workoutIdSchema,
       }),
@@ -328,10 +335,11 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
       try {
         const client = await deps.getClient(ctx.http?.authInfo);
         const detail = workoutDetail(await client.getResult(workout_id));
-        const { heartRate: hr, targets } = detail;
+        const { heartRate: hr, heartRateTimeWeighted: hrWeighted, targets } = detail;
         const sameDay = detail.startedAt?.slice(0, 10) === detail.date.slice(0, 10);
         const started = detail.startedAt && (sameDay ? detail.startedAt.slice(11) : detail.startedAt);
         const intervals = detail.segmentKind === "intervals";
+        const segmentWord = intervals ? "interval" : "split";
         const kinds = [...new Set(detail.segments.map((s) => s.kind).filter(Boolean))];
         const lines = [
           `${join([
@@ -349,13 +357,16 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
             detail.dragFactor && `drag factor ${detail.dragFactor}`,
             detail.restTime && `rest ${detail.restTime}${detail.restMeters ? ` (${detail.restMeters}m)` : ""}`,
           ])}.`,
-          hr &&
+          (hr || hrWeighted) &&
             `Heart rate: ${join([
-              hr.average && `avg ${hr.average}`,
-              hr.min && `min ${hr.min}`,
-              hr.max && `max ${hr.max}`,
-              hr.ending && `end ${hr.ending}`,
-              hr.recovery && `recovery ${hr.recovery}`,
+              // Two averages, because the Logbook's own follows the end-of-split readings, not the whole piece.
+              hr?.average && `Logbook avg ${hr.average} (Concept2's figure, from end-of-${segmentWord} readings)`,
+              hrWeighted &&
+                `time-weighted avg ${hrWeighted} (${intervals ? "over the work intervals, rest excluded" : "over the whole piece"}, from ${segmentWord} averages)`,
+              hr?.min && `min ${hr.min}`,
+              hr?.max && `max ${hr.max}`,
+              hr?.ending && `end ${hr.ending}`,
+              hr?.recovery && `recovery ${hr.recovery}`,
             ])}.`,
           targets &&
             `Targets: ${join([
@@ -367,7 +378,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
             ])}.`,
           detail.comments && `Comments: ${detail.comments}`,
           detail.segments.length > 0 &&
-            `${detail.segments.length} ${kinds.length === 1 && intervals ? `${kinds[0]} ` : ""}${intervals ? "intervals" : "splits"} (${paceNote(detail.machine)}):\n${segmentTable(detail.segments, intervals)}`,
+            `${detail.segments.length} ${kinds.length === 1 && intervals ? `${kinds[0]} ` : ""}${intervals ? "intervals" : "splits"} (${paceNote(detail.machine)}; hr_end is the reading at the end of each ${segmentWord}, as the Logbook site lists it):\n${segmentTable(detail.segments, intervals)}`,
         ];
         return ok(lines.filter(Boolean).join("\n"));
       } catch (error) {
