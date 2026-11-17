@@ -84,14 +84,18 @@ const paceNote = (machine: MachineType) =>
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+/** For a workout ID the Logbook doesn't have: says where real ones come from. */
+const noSuchWorkout = (id: number) => `No workout ${id} in this Logbook. Use an id from the id column of list_workouts.`;
+
 function ok(text: string): CallToolResult {
   return { content: [{ type: "text", text }] };
 }
 
-function fail(error: unknown, onError?: (error: unknown) => void): CallToolResult {
+/** `notFound` replaces Concept2's bare 404 text where the tool knows what was being looked up. */
+function fail(error: unknown, onError?: (error: unknown) => void, notFound?: string): CallToolResult {
   const message =
     error instanceof Concept2Error
-      ? error.message
+      ? (error.status === 404 && notFound) || error.message
       : error instanceof Error && error.name === "NotConnectedError"
         ? error.message
         : "Something went wrong reading your Concept2 Logbook. Try again in a moment, and if it keeps failing, report it with send_feedback.";
@@ -382,7 +386,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
         ];
         return ok(lines.filter(Boolean).join("\n"));
       } catch (error) {
-        return fail(error, deps.onToolError);
+        return fail(error, deps.onToolError, noSuchWorkout(workout_id));
       }
     },
   );
@@ -419,9 +423,16 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
                 .then((me) => me.max_heart_rate || null)
                 .catch(() => undefined)
             : null;
-        const [result, strokes] = await Promise.all([client.getResult(workout_id), client.getStrokes(workout_id)]);
+        // Concept2 answers 404 for the strokes of a workout that exists but was logged without
+        // stroke data, so only the workout's own 404 means the ID is wrong.
+        const strokesIfAny = client.getStrokes(workout_id).catch((error: unknown) => {
+          if (error instanceof Concept2Error && error.status === 404) return [];
+          throw error;
+        });
+        const [result, strokes] = await Promise.all([client.getResult(workout_id), strokesIfAny]);
         if (strokes.length === 0) {
-          return { content: [{ type: "text", text: `Workout ${workout_id} has no stroke data.` }], isError: true };
+          const text = `Workout ${workout_id} has no stroke data. get_workout still has its splits or intervals.`;
+          return { content: [{ type: "text", text }], isError: true };
         }
         const heading = workoutHeading(summarizeWorkout(result));
         if (format === "strokes") {
@@ -478,7 +489,7 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
           ].join("\n"),
         );
       } catch (error) {
-        return fail(error, deps.onToolError);
+        return fail(error, deps.onToolError, noSuchWorkout(workout_id));
       }
     },
   );

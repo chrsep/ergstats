@@ -45,6 +45,9 @@ async function fakeConcept2(input: RequestInfo | URL): Promise<Response> {
   if (url.pathname === `/api/users/me/results/${twoK.id}/strokes`) return json({ data: twoKStrokes });
   const result = [...allResults, splitsOnlyHeartRate].find((r) => url.pathname === `/api/users/me/results/${r.id}`);
   if (result) return json({ data: result });
+  // Workout IDs that stand in for Concept2 being down or rate limiting.
+  if (url.pathname === "/api/users/me/results/503") return new Response("unavailable", { status: 503 });
+  if (url.pathname === "/api/users/me/results/429") return new Response("slow down", { status: 429 });
   return new Response("not found", { status: 404 });
 }
 
@@ -305,7 +308,47 @@ describe("MCP endpoint", () => {
     const client = await connect();
     const result = await client.callTool({ name: "get_workout", arguments: { workout_id: 999 } });
     expect(result.isError).toBe(true);
-    expect((result.content as { text: string }[])[0].text).toContain("Not found");
+    expect(textOf(result)).toBe("No workout 999 in this Logbook. Use an id from the id column of list_workouts.");
+
+    const strokes = await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: 999 } });
+    expect(strokes.isError).toBe(true);
+    expect(textOf(strokes)).toBe("No workout 999 in this Logbook. Use an id from the id column of list_workouts.");
+  });
+
+  it("says a workout has no stroke data instead of calling it missing", async () => {
+    // Concept2 answers 404 for the strokes of a workout that exists but has none.
+    const client = await connect();
+    const result = await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: splitsOnlyHeartRate.id } });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toBe(
+      `Workout ${splitsOnlyHeartRate.id} has no stroke data. get_workout still has its splits or intervals.`,
+    );
+  });
+
+  it("says whether to retry when Concept2 is down or rate limiting", async () => {
+    const client = await connect();
+    const down = await client.callTool({ name: "get_workout", arguments: { workout_id: 503 } });
+    expect(down.isError).toBe(true);
+    expect(textOf(down)).toBe(
+      "Concept2's Logbook API is having trouble (HTTP 503). The problem is on Concept2's side; try again in a few minutes.",
+    );
+
+    const limited = await client.callTool({ name: "get_workout", arguments: { workout_id: 429 } });
+    expect(limited.isError).toBe(true);
+    expect(textOf(limited)).toBe("Concept2 is limiting requests to its Logbook API right now. Wait a minute, then try again.");
+  });
+
+  it("tells a model that sends no workout ID, or a made-up one, where real ones come from", async () => {
+    const client = await connect();
+    for (const args of [{}, { workout_id: null }, { workout_id: 0 }, { workout_id: "latest" }, { id: 1001 }]) {
+      for (const name of ["get_workout", "get_workout_strokes"]) {
+        const result = await client.callTool({ name, arguments: args });
+        expect(result.isError, JSON.stringify(args)).toBe(true);
+        expect(textOf(result), JSON.stringify(args)).toContain(
+          "workout_id: Pass the whole-number id of one workout, from the id column of list_workouts.",
+        );
+      }
+    }
   });
 
   it("stores feedback for the signed-in user", async () => {
