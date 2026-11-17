@@ -423,9 +423,16 @@ export function registerTools(server: McpServer, deps: ToolDeps) {
                 .then((me) => me.max_heart_rate || null)
                 .catch(() => undefined)
             : null;
-        const [result, strokes] = await Promise.all([client.getResult(workout_id), client.getStrokes(workout_id)]);
+        // Concept2 answers 404 for the strokes of a workout that exists but was logged without
+        // stroke data, so only the workout's own 404 means the ID is wrong.
+        const strokesIfAny = client.getStrokes(workout_id).catch((error: unknown) => {
+          if (error instanceof Concept2Error && error.status === 404) return [];
+          throw error;
+        });
+        const [result, strokes] = await Promise.all([client.getResult(workout_id), strokesIfAny]);
         if (strokes.length === 0) {
-          return { content: [{ type: "text", text: `Workout ${workout_id} has no stroke data.` }], isError: true };
+          const text = `Workout ${workout_id} has no stroke data. get_workout still has its splits or intervals.`;
+          return { content: [{ type: "text", text }], isError: true };
         }
         const heading = workoutHeading(summarizeWorkout(result));
         if (format === "strokes") {

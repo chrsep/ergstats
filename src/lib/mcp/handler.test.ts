@@ -315,6 +315,16 @@ describe("MCP endpoint", () => {
     expect(textOf(strokes)).toBe("No workout 999 in this Logbook. Use an id from the id column of list_workouts.");
   });
 
+  it("says a workout has no stroke data instead of calling it missing", async () => {
+    // Concept2 answers 404 for the strokes of a workout that exists but has none.
+    const client = await connect();
+    const result = await client.callTool({ name: "get_workout_strokes", arguments: { workout_id: splitsOnlyHeartRate.id } });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toBe(
+      `Workout ${splitsOnlyHeartRate.id} has no stroke data. get_workout still has its splits or intervals.`,
+    );
+  });
+
   it("says whether to retry when Concept2 is down or rate limiting", async () => {
     const client = await connect();
     const down = await client.callTool({ name: "get_workout", arguments: { workout_id: 503 } });
