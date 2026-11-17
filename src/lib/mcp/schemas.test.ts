@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { dateSchema, workoutIdSchema } from "./schemas";
+import { dateSchema, WORKOUT_ID_HINT, workoutIdSchema } from "./schemas";
 
 describe("dateSchema", () => {
   it("accepts real dates and rejects ones that only look right", () => {
@@ -22,6 +22,14 @@ describe("workoutIdSchema", () => {
   it("rejects anything that isn't a positive whole number", () => {
     for (const value of ["abc", "", "1.5", 1.5, 0, -3, null, true]) {
       expect(workoutIdSchema.safeParse(value).success).toBe(false);
+    }
+  });
+
+  it("explains every rejection the same way, with where a valid ID comes from", () => {
+    for (const value of [undefined, null, 0, -3, 1.5, 1e13, "latest"]) {
+      const result = workoutIdSchema.safeParse(value);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues.map((issue) => issue.message)).toEqual([WORKOUT_ID_HINT]);
     }
   });
 

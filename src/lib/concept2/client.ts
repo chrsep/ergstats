@@ -76,6 +76,16 @@ export class Concept2Client {
       );
     }
     if (res.status === 404) throw new Concept2Error(404, "Not found in your Concept2 Logbook.");
+    // Say whether a retry can help, so a model stops or waits instead of guessing.
+    if (res.status === 429) {
+      throw new Concept2Error(429, "Concept2 is limiting requests to its Logbook API right now. Wait a minute, then try again.");
+    }
+    if (res.status >= 500) {
+      throw new Concept2Error(
+        res.status,
+        `Concept2's Logbook API is having trouble (HTTP ${res.status}). The problem is on Concept2's side; try again in a few minutes.`,
+      );
+    }
     if (!res.ok) throw new Concept2Error(res.status, `Concept2 API request failed with HTTP ${res.status}.`);
     return (await res.json()) as T;
   }
